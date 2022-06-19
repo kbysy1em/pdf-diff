@@ -8,8 +8,27 @@ try:
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path('00.pdf', grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
+    plt.imshow(img1[200:600, 200:600])
+    plt.show()
+    # x1, y1 = map(int, input('origin1').split())
+    x1, y1 = 244, 116
+
     images2 = pdf2image.convert_from_path('01.pdf', grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
+    plt.imshow(img2[200:600, 200:600])
+    plt.show()
+    # x2, y2 = map(int, input('origin2').split())
+    x2, y2 = 242, 26
+
+    delta_x = x2 - x1
+    delta_y = y2 - y1
+
+    M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
+    img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]))
+
+    # plt.subplot(121).imshow(img1, vmin=0, vmax=255)
+    # plt.subplot(122).imshow(img2, vmin=0, vmax=255)
+    # plt.show()
 
     color_img = cv2.merge((img2, img2, img2))
 
@@ -17,30 +36,31 @@ try:
     # イントロゲーションエリアの原点は左上 
     int_height = 100
     int_width = 100
-    ite_x = 2
-    ite_y = 2
-    overlap = 0
-    int_x = ite_x * int_height
-    int_y = ite_y * int_width
+    step_x = 0.5
+    step_y = 0.5
+    scan_area_ratio_x = 0.25
+    scan_area_ratio_y = 0.25
+    ite_x = scan_area_ratio_x / step_x  # 初期値
+    ite_y = scan_area_ratio_y / step_y  # 初期値
 
-    while int_x + int_height * 3 <= img2.shape[0]:
-    # if True:
-    #     ite_x = 5
-    #     int_x = ite_x * int_height
-        while int_y + int_width * 3 <= img2.shape[1]:
-        # if True:
-        #     ite_y = 10
-        #     int_y = ite_y * int_width
+    def current_x():
+        return int(ite_x * int_height * step_x)
+    def current_y():
+        return int(ite_y * int_width * step_y)
+
+    while current_x() + int_height * (scan_area_ratio_x + 1) < img2.shape[0]:
+        while current_y() + int_width * (scan_area_ratio_y + 1) < img2.shape[1]:
             # start5 = time.perf_counter()
-            template = img2[int_x:int_x + int_height, int_y:int_y + int_width]
+            template = img2[current_x():current_x() + int_height, current_y():current_y() + int_width]
 
             method = eval('cv2.TM_CCORR_NORMED')
             # methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
             #             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
 
-            scan_img = img1[int_x - int_height * 1:int_x + int_height * 2, int_y - int_width * 1:int_y + int_width * 2]
-            # stop5 = time.perf_counter() - start5
-            # print(f'stop5: {stop5}')
+            scan_img = img1[current_x() - int(int_height * scan_area_ratio_x)
+                :current_x() + int(int_height * (scan_area_ratio_x + 1)),
+                current_y() - int(int_width * scan_area_ratio_y)
+                :current_y() + int(int_width * (scan_area_ratio_y + 1))]
 
 
             # start3 = time.perf_counter()
@@ -50,32 +70,33 @@ try:
 
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
-            if max_val < 0.95:
-                part_img = color_img[int_x:int_x + int_height, int_y:int_y+int_width]
+            if max_val < 0.98:
+                part_img = color_img[current_x():current_x() + int_height, current_y():current_y() + int_width]
                 white_pixels = (part_img == (255, 255, 255)).all(axis=2)
                 part_img[white_pixels] = (255, 99, 71)
-                color_img[int_x:int_x + int_height, int_y:int_y+int_width] = part_img
-
-            #スライスして部分行列を取出し、その中の白い部分だけ赤くする
-            # cv2.rectangle(color_img, top_left, bottom_right, (255, 99, 71), 2)
+                color_img[current_x():current_x() + int_height, current_y():current_y() + int_width] = part_img
 
             ite_y += 1
-            int_y = ite_y * int_width
-        ite_y = 2
-        int_y = ite_y * int_width
+        ite_y = scan_area_ratio_y / step_y
         ite_x += 1
-        int_x = ite_x * int_height
+        print(current_x())
 
-    plt.subplot(141).imshow(res)
-    plt.title('Matching Result'), plt.xticks([]), plt.yticks([])
-    plt.subplot(142).imshow(color_img)
+    ite_x = 20
+    ite_y = 50
+    print(current_x(), current_y())
+    plt.subplot(141).imshow(color_img)
     plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
-    plt.subplot(143)
-    plt.imshow(template, vmin=0, vmax=255, cmap='gray')
-    plt.subplot(144)
-    plt.imshow(scan_img, vmin=0, vmax=255, cmap='gray')
 
-
+    template = img2[current_x():current_x() + int_height, current_y():current_y() + int_width]    
+    plt.subplot(143).imshow(template, vmin=0, vmax=255)
+    plt.title('Template'), plt.xticks([]), plt.yticks([])
+    
+    scan_img = img1[current_x() - int(int_height * scan_area_ratio_x)
+        :current_x() + int(int_height * (scan_area_ratio_x + 1)),
+        current_y() - int(int_width * scan_area_ratio_y)
+        :current_y() + int(int_width * (scan_area_ratio_y + 1))]
+    plt.subplot(144).imshow(scan_img, vmin=0, vmax=255)
+    plt.title('Scan'), plt.xticks([]), plt.yticks([])
     plt.show()
 
 except:
@@ -84,22 +105,4 @@ except:
     print(sys.exc_info()[1])
     import traceback
     print(traceback.format_tb(sys.exc_info()[2]))
-
-
-    # pdf_file_path = pathlib.Path('00.pdf')
-    # base = pdf_file_path.stem
-
-#    if img.shape[2] == 3:
-#        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        
-#    for index, image in enumerate(images):
-#        image.save(pathlib.Path(base + f'-{index + 1}.png'), 'png')
-
-
-#    filename = "00-1.png"
-#    img = cv2.imread(filename)
-
-#    cv2.imshow('image',template)
-#    cv2.waitKey(0)
-#    cv2.destroyAllWindows()
 
