@@ -8,6 +8,7 @@ try:
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path('00.pdf', grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
+   
     plt.imshow(img1[200:600, 200:600])
     plt.show()
     # x1, y1 = map(int, input('origin1').split())
@@ -24,7 +25,7 @@ try:
     delta_y = y2 - y1
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
-    img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]))
+    img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]), borderValue=255)
 
     # plt.subplot(121).imshow(img1, vmin=0, vmax=255)
     # plt.subplot(122).imshow(img2, vmin=0, vmax=255)
@@ -50,7 +51,6 @@ try:
 
     while current_x() + int_height * (scan_area_ratio_x + 1) < img2.shape[0]:
         while current_y() + int_width * (scan_area_ratio_y + 1) < img2.shape[1]:
-            # start5 = time.perf_counter()
             template = img2[current_x():current_x() + int_height, current_y():current_y() + int_width]
 
             method = eval('cv2.TM_CCORR_NORMED')
@@ -62,11 +62,7 @@ try:
                 current_y() - int(int_width * scan_area_ratio_y)
                 :current_y() + int(int_width * (scan_area_ratio_y + 1))]
 
-
-            # start3 = time.perf_counter()
             res = cv2.matchTemplate(scan_img, template, method)
-            # stop3 = time.perf_counter() - start3
-            # print(f'stop3: {stop3}')
 
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
@@ -81,22 +77,8 @@ try:
         ite_x += 1
         print(current_x())
 
-    ite_x = 20
-    ite_y = 50
-    print(current_x(), current_y())
-    plt.subplot(141).imshow(color_img)
-    plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
-
-    template = img2[current_x():current_x() + int_height, current_y():current_y() + int_width]    
-    plt.subplot(143).imshow(template, vmin=0, vmax=255)
-    plt.title('Template'), plt.xticks([]), plt.yticks([])
-    
-    scan_img = img1[current_x() - int(int_height * scan_area_ratio_x)
-        :current_x() + int(int_height * (scan_area_ratio_x + 1)),
-        current_y() - int(int_width * scan_area_ratio_y)
-        :current_y() + int(int_width * (scan_area_ratio_y + 1))]
-    plt.subplot(144).imshow(scan_img, vmin=0, vmax=255)
-    plt.title('Scan'), plt.xticks([]), plt.yticks([])
+    plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
+    plt.subplot(122).imshow(color_img)
     plt.show()
 
 except:
