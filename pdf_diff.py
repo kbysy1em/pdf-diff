@@ -7,47 +7,6 @@ from matplotlib import pyplot as plt
 
 posi = []
 
-class PointList():
-    def __init__(self, npoints):
-        self.npoints = npoints
-        self.ptlist = np.empty((npoints, 2), dtype=int)
-        self.pos = 0
-
-    def add(self, x, y):
-        if self.pos < self.npoints:
-            self.ptlist[self.pos, :] = [x, y]
-            self.pos += 1
-            return True
-        return False
-
-
-def onMouse(event, x, y, flag, params):
-    wname, img, ptlist = params
-    if event == cv2.EVENT_MOUSEMOVE:  # マウスが移動したときにx線とy線を更新する
-        img2 = np.copy(img)
-        h, w = img2.shape[0], img2.shape[1]
-        cv2.line(img2, (x, 0), (x, h - 1), (50, 205, 50))
-        cv2.line(img2, (0, y), (w - 1, y), (50, 205, 50))
-        cv2.imshow(wname, img2)
-
-    if event == cv2.EVENT_LBUTTONDOWN:  # レフトボタンをクリックしたとき、ptlist配列にx,y座標を格納する
-        if ptlist.add(x, y):
-            print('[%d] ( %d, %d )' % (ptlist.pos - 1, x, y))
-            cv2.circle(img, (x, y), 3, (50, 205, 50), 3)
-            cv2.imshow(wname, img)
-        else:
-            print('All points have selected.  Press ESC-key.')
-        if(ptlist.pos == ptlist.npoints):
-            print(ptlist.ptlist)
-            cv2.line(img, (ptlist.ptlist[0][0], ptlist.ptlist[0][1]),
-                     (ptlist.ptlist[1][0], ptlist.ptlist[1][1]), (50, 205, 50), 3)
-            cv2.line(img, (ptlist.ptlist[1][0], ptlist.ptlist[1][1]),
-                     (ptlist.ptlist[2][0], ptlist.ptlist[2][1]), (50, 205, 50), 3)
-            cv2.line(img, (ptlist.ptlist[2][0], ptlist.ptlist[2][1]),
-                     (ptlist.ptlist[3][0], ptlist.ptlist[3][1]), (50, 205, 50), 3)
-            cv2.line(img, (ptlist.ptlist[3][0], ptlist.ptlist[3][1]),
-                     (ptlist.ptlist[0][0], ptlist.ptlist[0][1]), (50, 205, 50), 3)
-
 def onclick2(event):
     global posi
     posi.append([event.xdata, event.ydata])
@@ -58,41 +17,25 @@ def main(input_filename1, input_filename2):
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(input_filename1, grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
-    npoints = 4
-    ptlist = PointList(npoints)
 
     fig = plt.figure()
-    plt.imshow(img1)
+    plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
     print(posi)
-
     x1, y1 = posi.pop()
-
-    # cv2.namedWindow(wname)
-    # cv2.imshow(wname, img1)
-    # cv2.setMouseCallback(wname, onMouse, [wname, img1, ptlist])
-    # cv2.waitKey()
-    # cv2.destroyAllWindows()
-    
 
     images2 = pdf2image.convert_from_path(input_filename2, grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
 
     fig = plt.figure()
-    plt.imshow(img2)
+    plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
     print(posi)
 
     x2, y2 = posi.pop()
 
-    # wname2 = '222'
-    # cv2.namedWindow(wname2)
-    # cv2.imshow(wname2, img2)
-    # cv2.setMouseCallback(wname2, onMouse, [wname2, img2, ptlist])
-    # cv2.waitKey()
-    # cv2.destroyAllWindows()
 
 
     delta_x = x2 - x1
@@ -101,10 +44,6 @@ def main(input_filename1, input_filename2):
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
     img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]), borderValue=255)
-
-    # plt.subplot(121).imshow(img1, vmin=0, vmax=255)
-    # plt.subplot(122).imshow(img2, vmin=0, vmax=255)
-    # plt.show()
 
     color_img = cv2.merge((img2, img2, img2))
 
@@ -151,6 +90,31 @@ def main(input_filename1, input_filename2):
         ite_y = scan_area_ratio_y / step_y
         ite_x += 1
         print(current_x())
+
+    fig = plt.figure()
+    plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
+    plt.subplot(122).imshow(color_img)
+    fig.canvas.mpl_connect('button_press_event', onclick2)
+    plt.show()
+
+    y2, x2 = posi.pop()
+    y1, x1 = posi.pop()
+    x1 = int(x1)
+    x2 = int(x2)
+    y1 = int(y1)
+    y2 = int(y2)
+
+    print(x1, x2, y1, y2)
+    part_img = color_img[x1:x2, y1:y2]
+
+    cv2.imshow('a', part_img)
+    cv2.waitKey(0)
+    red_pixels = (part_img == (255, 99, 71)).all(axis=2)
+    print(red_pixels)
+    part_img[red_pixels] = (255, 255, 255)
+    cv2.imshow('b', part_img)
+    cv2.waitKey(0)
+    color_img[x1:x2, y1:y2] = part_img
 
     plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
     plt.subplot(122).imshow(color_img)
