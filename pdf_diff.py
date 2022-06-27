@@ -9,7 +9,12 @@ posi = []
 
 def onclick2(event):
     global posi
-    posi.append([event.xdata, event.ydata])
+
+    # matplotlibでは横方向がx、縦方向がyになる模様
+    posi.append([int(event.ydata), int(event.xdata)])
+    
+    print(f'Clicked point: {posi[-1]}')
+
 
 def main(input_filename1, input_filename2):
     global posi
@@ -22,7 +27,6 @@ def main(input_filename1, input_filename2):
     plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
-    print(posi)
     x1, y1 = posi.pop()
 
     images2 = pdf2image.convert_from_path(input_filename2, grayscale=True, dpi=600)
@@ -32,11 +36,8 @@ def main(input_filename1, input_filename2):
     plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
-    print(posi)
 
     x2, y2 = posi.pop()
-
-
 
     delta_x = x2 - x1
     delta_y = y2 - y1
@@ -53,8 +54,8 @@ def main(input_filename1, input_filename2):
     int_width = 100
     step_x = 0.5
     step_y = 0.5
-    scan_area_ratio_x = 0.25
-    scan_area_ratio_y = 0.25
+    scan_area_ratio_x = 0.5
+    scan_area_ratio_y = 0.5
     ite_x = scan_area_ratio_x / step_x  # 初期値
     ite_y = scan_area_ratio_y / step_y  # 初期値
 
@@ -95,30 +96,26 @@ def main(input_filename1, input_filename2):
     plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
     plt.subplot(122).imshow(color_img)
     fig.canvas.mpl_connect('button_press_event', onclick2)
+    plt.savefig('aaa.pdf', dpi=600)
     plt.show()
 
-    y2, x2 = posi.pop()
-    y1, x1 = posi.pop()
-    x1 = int(x1)
-    x2 = int(x2)
-    y1 = int(y1)
-    y2 = int(y2)
+    while True:
+        if input('OK?(y/n)') != 'n':
+            break
 
-    print(x1, x2, y1, y2)
-    part_img = color_img[x1:x2, y1:y2]
+        x2, y2 = posi.pop()
+        x1, y1 = posi.pop()
 
-    cv2.imshow('a', part_img)
-    cv2.waitKey(0)
-    red_pixels = (part_img == (255, 99, 71)).all(axis=2)
-    print(red_pixels)
-    part_img[red_pixels] = (255, 255, 255)
-    cv2.imshow('b', part_img)
-    cv2.waitKey(0)
-    color_img[x1:x2, y1:y2] = part_img
+        print(x1, x2, y1, y2)
+        part_img = color_img[x1:x2, y1:y2]
 
-    plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
-    plt.subplot(122).imshow(color_img)
-    plt.show()
+        red_pixels = (part_img == (255, 99, 71)).all(axis=2)
+        part_img[red_pixels] = (255, 255, 255)
+        color_img[x1:x2, y1:y2] = part_img
+
+        plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
+        plt.subplot(122).imshow(color_img)
+        plt.show()
 
 if __name__ == '__main__':
     try:
@@ -130,5 +127,3 @@ if __name__ == '__main__':
         import traceback
         print(traceback.format_tb(sys.exc_info()[2]))
 
-    # except Exception as e:
-    #     print(e)
