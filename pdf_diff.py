@@ -3,6 +3,7 @@ import cv2
 import pdf2image
 import sys
 import time
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 posi = []
@@ -92,15 +93,36 @@ def main(input_filename1, input_filename2):
         ite_x += 1
         print(current_x())
 
-    fig = plt.figure()
-    plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
-    plt.subplot(122).imshow(color_img)
-    fig.canvas.mpl_connect('button_press_event', onclick2)
-    plt.savefig('aaa.pdf', dpi=600)
-    plt.show()
+    retry = True
 
-    while True:
-        if input('OK?(y/n)') != 'n':
+
+    while retry:
+        posi = []
+
+        print('一部の着色箇所を白に戻すには、戻したい箇所(長方形2点)を選択した上で、画像を閉じ\n'
+            + '次に現れるダイアログで n を入力してください')
+
+        fig = plt.figure(figsize=(11.69, 8.27))
+
+        
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax1.axis('off')
+        ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
+        ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
+        
+        ax2 = plt.subplot(1, 2, 2)
+        ax2.axis('off')
+        ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
+        ax2.imshow(color_img)
+
+        plt.savefig('aaa.pdf', dpi=600, bbox_inches='tight')
+        fig.canvas.mpl_connect('button_press_event', onclick2)
+        plt.show()
+
+        if len(posi) < 2:
+            break
+
+        if input('終了してよろしいですか?(y/n)') != 'n':
             break
 
         x2, y2 = posi.pop()
@@ -113,9 +135,6 @@ def main(input_filename1, input_filename2):
         part_img[red_pixels] = (255, 255, 255)
         color_img[x1:x2, y1:y2] = part_img
 
-        plt.subplot(121).imshow(img1, vmin=0, vmax=255, cmap='gray')
-        plt.subplot(122).imshow(color_img)
-        plt.show()
 
 if __name__ == '__main__':
     try:
