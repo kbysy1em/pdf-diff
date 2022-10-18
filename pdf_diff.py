@@ -20,12 +20,24 @@ def onclick2(event):
 def main(input_filename1, input_filename2):
     global posi
 
+    # 縦がX(下向きが正)、横がY(右向きが正)
+    # イントロゲーションエリアの原点は左上 
+    intr_area_x = 100
+    intr_area_y = 100
+    step_x = 0.5
+    step_y = 0.5
+    scan_area_ratio_x = 0.5
+    scan_area_ratio_y = 0.5
+    initial_ite_x = int(scan_area_ratio_x / step_x)  # 初期値
+    initial_ite_y = int(scan_area_ratio_y / step_y)  # 初期値
+
+
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(input_filename1, grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {input_filename1} を読み込みました。画像サイズ: {img1.shape}')
 
-    print('比較元の原点をクリックしてください')
+    print('比較元画像の基準点をクリックしてください')
     fig = plt.figure()
     plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
@@ -36,56 +48,51 @@ def main(input_filename1, input_filename2):
     img2 = np.array(images2[0], dtype=np.uint8)
     print(f'比較先ファイル {input_filename2} を読み込みました。画像サイズ: {img2.shape}')
 
-    print('比較先の原点をクリックしてください')
+    print('比較先画像の基準点をクリックしてください')
     fig = plt.figure()
     plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
     fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
     x2, y2 = posi.pop()
 
+    border_x = int(intr_area_x * scan_area_ratio_x)
+    border_y = int(intr_area_y * scan_area_ratio_y)
+    img1 = cv2.copyMakeBorder(img1, border_x, border_x, border_y, border_y, cv2.BORDER_CONSTANT, value=255)
+    print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
+
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
     delta_x = x2 - x1
     delta_y = y2 - y1
-    print(f'{x1=}, {y1=}, {x2=}, {y2=}, {delta_x=}, {delta_y=}')
+    print(f'移動量: {delta_x=}, {delta_y=}')
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
     img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]), borderValue=255)
+    print(f'比較元画像の位置調整を行いました')
 
     color_img = cv2.merge((img2, img2, img2))
-
-    # 縦がX(下向きが正)、横がY(右向きが正)
-    # イントロゲーションエリアの原点は左上 
-    int_height = 100
-    int_width = 100
-    step_x = 0.5
-    step_y = 0.5
-    scan_area_ratio_x = 0.5
-    scan_area_ratio_y = 0.5
-    initial_ite_x = int(scan_area_ratio_x / step_x)  # 初期値
-    initial_ite_y = int(scan_area_ratio_y / step_y)  # 初期値
 
     ite_xs = range(initial_ite_x, 800)
     ite_ys = range(initial_ite_y, 200)
 
     start1 = time.perf_counter()
-    # while current_x() + int_height * (scan_area_ratio_x + 1) < img2.shape[0]:
+    # while current_x() + intr_area_x * (scan_area_ratio_x + 1) < img2.shape[0]:
     for ite_x in ite_xs:
-        x = int(ite_x * int_height * step_x)
+        x = int(ite_x * intr_area_x * step_x)
 
         for ite_y in ite_ys:
-            y = int(ite_y * int_width * step_y)
+            y = int(ite_y * intr_area_y * step_y)
 
             # print(f'{ite_y=}, {y=}, {img2.shape[1]=}')
-            template = img2[x:x + int_height, y:y + int_width]
+            template = img2[x:x + intr_area_x, y:y + intr_area_y]
 
             method = eval('cv2.TM_CCORR_NORMED')
             # methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
             #             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
 
-            scan_img = img1[x - int(int_height * scan_area_ratio_x)
-                :x + int(int_height * (scan_area_ratio_x + 1)),
-                y - int(int_width * scan_area_ratio_y)
-                :y + int(int_width * (scan_area_ratio_y + 1))]
+            scan_img = img1[border_x + x - int(intr_area_x * scan_area_ratio_x)
+                :border_x + x + int(intr_area_x * (scan_area_ratio_x + 1)),
+                border_y + y - int(intr_area_y * scan_area_ratio_y)
+                :border_y + y + int(intr_area_y * (scan_area_ratio_y + 1))]
 
             res = cv2.matchTemplate(scan_img, template, method)
 
@@ -93,15 +100,15 @@ def main(input_filename1, input_filename2):
 
             # 一致度が低い場所は色を付ける
             if max_val < 0.95:
-                part_img = color_img[x:x + int_height, y:y + int_width]
+                part_img = color_img[x:x + intr_area_x, y:y + intr_area_y]
                 white_pixels = (part_img == (255, 255, 255)).all(axis=2)
                 part_img[white_pixels] = (255, 99, 71)
-                color_img[x:x + int_height, y:y + int_width] = part_img
+                color_img[x:x + intr_area_x, y:y + intr_area_y] = part_img
 
-            if y + int_width + scan_area_ratio_y * int_width > img2.shape[1]:
+            if y + intr_area_y + scan_area_ratio_y * intr_area_y > img2.shape[1]:
                 break
             
-        if x + int_height + scan_area_ratio_x * int_height > img2.shape[0]:
+        if x + intr_area_x + scan_area_ratio_x * intr_area_x > img2.shape[0]:
             break
 
     print(f'stop_all: {((time.perf_counter()-start1)*10**6):.1f}')
