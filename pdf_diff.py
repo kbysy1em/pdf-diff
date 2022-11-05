@@ -28,8 +28,8 @@ def main(input_filename1, input_filename2):
     step_y = 0.5
     scan_area_ratio_x = 0.5
     scan_area_ratio_y = 0.5
-    initial_ite_x = int(scan_area_ratio_x / step_x)  # 初期値
-    initial_ite_y = int(scan_area_ratio_y / step_y)  # 初期値
+    # initial_ite_x = int(scan_area_ratio_x / step_x)  # 初期値
+    # initial_ite_y = int(scan_area_ratio_y / step_y)  # 初期値
 
 
     # images will be a list of PIL Image representing each page of the PDF document.
@@ -71,8 +71,9 @@ def main(input_filename1, input_filename2):
 
     color_img = cv2.merge((img2, img2, img2))
 
-    ite_xs = range(initial_ite_x, 800)
-    ite_ys = range(initial_ite_y, 200)
+    ite_xs = range(int((img2.shape[0] - intr_area_x) / (intr_area_x * step_x)))
+    ite_ys = range(int((img2.shape[1] - intr_area_y) / (intr_area_y * step_y)))
+    # ite_ys = range(200)
 
     start1 = time.perf_counter()
     # while current_x() + intr_area_x * (scan_area_ratio_x + 1) < img2.shape[0]:
