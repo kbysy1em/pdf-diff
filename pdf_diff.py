@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import pdf2image
+from settings import * 
 import sys
 import time
 import traceback
@@ -16,26 +17,49 @@ def onclick2(event):
     posi.append([int(event.ydata), int(event.xdata)])
     print(f'Clicked point: {posi[-1]}')
 
+def check_and_color_img(settings, img1, img2, color_img):
+    ite_xs = range(int((img2.shape[0] - settings['intr_area_x']) 
+        / (settings['intr_area_x'] * settings['step_x'])))
+    ite_ys = range(int((img2.shape[1] - settings['intr_area_y'])
+        / (settings['intr_area_y'] * settings['step_y'])))
 
-def main(input_filename1, input_filename2):
+    for ite_x in ite_xs:
+        x = int(ite_x * settings['intr_area_x'] * settings['step_x'])
+
+        for ite_y in ite_ys:
+            y = int(ite_y * settings['intr_area_y'] * settings['step_y'])
+
+            # print(f'{ite_y=}, {y=}, {img2.shape[1]=}')
+            template = img2[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
+
+            method = eval('cv2.TM_CCORR_NORMED')
+            # methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
+            #             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
+
+            scan_img = img1[settings['border_x'] + x - int(settings['intr_area_x'] * settings['scan_area_ratio_x'])
+                :settings['border_x'] + x + int(settings['intr_area_x'] * (settings['scan_area_ratio_x'] + 1)),
+                settings['border_y'] + y - int(settings['intr_area_y'] * settings['scan_area_ratio_y'])
+                :settings['border_y'] + y + int(settings['intr_area_y'] * (settings['scan_area_ratio_y'] + 1))]
+
+            res = cv2.matchTemplate(scan_img, template, method)
+
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+
+            # 一致度が低い場所は色を付ける
+            if max_val < 0.95:
+                part_img = color_img[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
+                white_pixels = (part_img == (255, 255, 255)).all(axis=2)
+                part_img[white_pixels] = (255, 99, 71)
+                color_img[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
+
+
+def main(settings):
     global posi
 
-    # 縦がX(下向きが正)、横がY(右向きが正)
-    # イントロゲーションエリアの原点は左上 
-    intr_area_x = 100
-    intr_area_y = 100
-    step_x = 0.5
-    step_y = 0.5
-    scan_area_ratio_x = 0.5
-    scan_area_ratio_y = 0.5
-    # initial_ite_x = int(scan_area_ratio_x / step_x)  # 初期値
-    # initial_ite_y = int(scan_area_ratio_y / step_y)  # 初期値
-
-
     # images will be a list of PIL Image representing each page of the PDF document.
-    images1 = pdf2image.convert_from_path(input_filename1, grayscale=True, dpi=600)
+    images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
-    print(f'比較元ファイル {input_filename1} を読み込みました。画像サイズ: {img1.shape}')
+    print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     print('比較元画像の基準点をクリックしてください')
     fig = plt.figure()
@@ -44,9 +68,9 @@ def main(input_filename1, input_filename2):
     plt.show()
     x1, y1 = posi.pop()
 
-    images2 = pdf2image.convert_from_path(input_filename2, grayscale=True, dpi=600)
+    images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
-    print(f'比較先ファイル {input_filename2} を読み込みました。画像サイズ: {img2.shape}')
+    print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
     print('比較先画像の基準点をクリックしてください')
     fig = plt.figure()
@@ -55,9 +79,8 @@ def main(input_filename1, input_filename2):
     plt.show()
     x2, y2 = posi.pop()
 
-    border_x = int(intr_area_x * scan_area_ratio_x)
-    border_y = int(intr_area_y * scan_area_ratio_y)
-    img1 = cv2.copyMakeBorder(img1, border_x, border_x, border_y, border_y, cv2.BORDER_CONSTANT, value=255)
+    img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
+        settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
     print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
 
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
@@ -71,52 +94,12 @@ def main(input_filename1, input_filename2):
 
     color_img = cv2.merge((img2, img2, img2))
 
-    ite_xs = range(int((img2.shape[0] - intr_area_x) / (intr_area_x * step_x)))
-    ite_ys = range(int((img2.shape[1] - intr_area_y) / (intr_area_y * step_y)))
-    # ite_ys = range(200)
 
     start1 = time.perf_counter()
-    # while current_x() + intr_area_x * (scan_area_ratio_x + 1) < img2.shape[0]:
-    for ite_x in ite_xs:
-        x = int(ite_x * intr_area_x * step_x)
-
-        for ite_y in ite_ys:
-            y = int(ite_y * intr_area_y * step_y)
-
-            # print(f'{ite_y=}, {y=}, {img2.shape[1]=}')
-            template = img2[x:x + intr_area_x, y:y + intr_area_y]
-
-            method = eval('cv2.TM_CCORR_NORMED')
-            # methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
-            #             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-
-            scan_img = img1[border_x + x - int(intr_area_x * scan_area_ratio_x)
-                :border_x + x + int(intr_area_x * (scan_area_ratio_x + 1)),
-                border_y + y - int(intr_area_y * scan_area_ratio_y)
-                :border_y + y + int(intr_area_y * (scan_area_ratio_y + 1))]
-
-            res = cv2.matchTemplate(scan_img, template, method)
-
-            _, max_val, _, _ = cv2.minMaxLoc(res)
-
-            # 一致度が低い場所は色を付ける
-            if max_val < 0.95:
-                part_img = color_img[x:x + intr_area_x, y:y + intr_area_y]
-                white_pixels = (part_img == (255, 255, 255)).all(axis=2)
-                part_img[white_pixels] = (255, 99, 71)
-                color_img[x:x + intr_area_x, y:y + intr_area_y] = part_img
-
-            if y + intr_area_y + scan_area_ratio_y * intr_area_y > img2.shape[1]:
-                break
-            
-        if x + intr_area_x + scan_area_ratio_x * intr_area_x > img2.shape[0]:
-            break
-
+    check_and_color_img(settings, img1, img2, color_img)
     print(f'stop_all: {((time.perf_counter()-start1)*10**6):.1f}')
-#5157198 while
-#5102536 for loop
-    retry = True
 
+    retry = True
 
     while retry:
         posi = []
@@ -161,7 +144,9 @@ if __name__ == '__main__':
         if len(sys.argv) < 2:
             raise Exception('引数が足りません')
 
-        main(sys.argv[1], sys.argv[2])
+        settings['filename1'] = sys.argv[1]
+        settings['filename2'] = sys.argv[2]
+        main(settings)
 
     except:
         print('Error: ', sys.exc_info()[0])
