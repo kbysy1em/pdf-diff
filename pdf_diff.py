@@ -1,14 +1,28 @@
 import numpy as np
 import cv2
 import pdf2image
-from settings import * 
+import pprint
 import sys
 import time
 import traceback
 import matplotlib as mpl
+from concurrent.futures import (ProcessPoolExecutor, Future)
+from functools import wraps
 from matplotlib import pyplot as plt
+from multiprocessing import Process
+from multiprocessing import Manager
+from settings import * 
 
 posi = []
+
+def elapsed_time(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        v = f(*args, **kwargs)
+        print(f"{f.__name__}: {time.time() - start}")
+        return v
+    return wrapper
 
 def onclick2(event):
     global posi
@@ -17,16 +31,16 @@ def onclick2(event):
     posi.append([int(event.ydata), int(event.xdata)])
     print(f'Clicked point: {posi[-1]}')
 
-def check_and_color_img(settings, img1, img2, color_img):
-    ite_xs = range(int((img2.shape[0] - settings['intr_area_x']) 
-        / (settings['intr_area_x'] * settings['step_x'])))
-    ite_ys = range(int((img2.shape[1] - settings['intr_area_y'])
-        / (settings['intr_area_y'] * settings['step_y'])))
+def work(settings, img1, img2, color_img, start, stop=None):
+    if stop is None:
+        stop = int((img2.shape[0] - settings['intr_area_x']) / (settings['intr_area_x'] * settings['step_x']))
+
+    ite_xs = range(start, stop)
 
     for ite_x in ite_xs:
         x = int(ite_x * settings['intr_area_x'] * settings['step_x'])
 
-        for ite_y in ite_ys:
+        for ite_y in settings['ite_ys']:
             y = int(ite_y * settings['intr_area_y'] * settings['step_y'])
 
             # print(f'{ite_y=}, {y=}, {img2.shape[1]=}')
@@ -52,6 +66,32 @@ def check_and_color_img(settings, img1, img2, color_img):
                 part_img[white_pixels] = (255, 99, 71)
                 color_img[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
 
+@elapsed_time
+def check_and_color_img(settings, img1, img2, color_img):
+    # settings['ite_xs'] = range(int((img2.shape[0] - settings['intr_area_x']) 
+    #     / (settings['intr_area_x'] * settings['step_x'])))
+    settings['ite_ys'] = range(int((img2.shape[1] - settings['intr_area_y'])
+        / (settings['intr_area_y'] * settings['step_y'])))
+
+    manager = Manager()
+    returned_dict = manager.dict()
+    process_list = []
+
+    p1 = Process(target=work, args=(settings, img1, img2, color_img, 0, 50))
+    p2 = Process(target=work, args=(settings, img1, img2, color_img, 50, 100))
+    p3 = Process(target=work, args=(settings, img1, img2, color_img, 100))
+
+    p1.start()
+    p2.start()
+    p3.start()
+    
+    p1.join()
+    p2.join()
+    p3.join()
+
+    # work(settings, img1, img2, color_img, 0, 50)
+    # work(settings, img1, img2, color_img, 50, 100)
+    # work(settings, img1, img2, color_img, 100)
 
 def main(settings):
     global posi
@@ -94,13 +134,9 @@ def main(settings):
 
     color_img = cv2.merge((img2, img2, img2))
 
-
-    start1 = time.perf_counter()
     check_and_color_img(settings, img1, img2, color_img)
-    print(f'stop_all: {((time.perf_counter()-start1)*10**6):.1f}')
 
     retry = True
-
     while retry:
         posi = []
 
@@ -149,6 +185,9 @@ if __name__ == '__main__':
         main(settings)
 
     except:
-        print('Error: ', sys.exc_info()[0])
-        print(sys.exc_info()[1])
-        print(traceback.format_tb(sys.exc_info()[2]))
+        print('Error: ')
+        pprint.pprint(sys.exc_info())
+        pprint.pprint(traceback.format_tb(sys.exc_info()[2]))
+        # pprint.pprint('Error: ', sys.exc_info()[0])
+        # pprint.pprint(sys.exc_info()[1])
+        # pprint.pprint(traceback.format_tb(sys.exc_info()[2]))
