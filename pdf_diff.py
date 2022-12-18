@@ -10,7 +10,7 @@ from concurrent.futures import (ProcessPoolExecutor, Future)
 from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process
-from multiprocessing import Manager
+from multiprocessing import shared_memory
 from settings import * 
 
 posi = []
@@ -34,6 +34,9 @@ def onclick2(event):
 def work(settings, img1, img2, color_img, start, stop=None):
     if stop is None:
         stop = int((img2.shape[0] - settings['intr_area_x']) / (settings['intr_area_x'] * settings['step_x']))
+
+    cshm = shared_memory.SharedMemory(name='color_img_shm')
+    cimg = np.ndarray(color_img.shape, dtype=np.uint8, buffer=cshm.buf)
 
     ite_xs = range(start, stop)
 
@@ -61,10 +64,11 @@ def work(settings, img1, img2, color_img, start, stop=None):
 
             # 一致度が低い場所は色を付ける
             if max_val < 0.95:
-                part_img = color_img[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
+                part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
                 white_pixels = (part_img == (255, 255, 255)).all(axis=2)
                 part_img[white_pixels] = (255, 99, 71)
-                color_img[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
+                cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
+    cshm.close()
 
 @elapsed_time
 def check_and_color_img(settings, img1, img2, color_img):
@@ -73,9 +77,11 @@ def check_and_color_img(settings, img1, img2, color_img):
     settings['ite_ys'] = range(int((img2.shape[1] - settings['intr_area_y'])
         / (settings['intr_area_y'] * settings['step_y'])))
 
-    manager = Manager()
-    returned_dict = manager.dict()
-    process_list = []
+    # print(color_img.dtype)
+    shm = shared_memory.SharedMemory(name='color_img_shm', create=True, size=color_img.nbytes)
+
+    color_img2 = np.ndarray(color_img.shape, dtype=np.uint8, buffer=shm.buf)
+    color_img2[:, :] = color_img[:, :]
 
     p1 = Process(target=work, args=(settings, img1, img2, color_img, 0, 50))
     p2 = Process(target=work, args=(settings, img1, img2, color_img, 50, 100))
@@ -92,6 +98,14 @@ def check_and_color_img(settings, img1, img2, color_img):
     # work(settings, img1, img2, color_img, 0, 50)
     # work(settings, img1, img2, color_img, 50, 100)
     # work(settings, img1, img2, color_img, 100)
+    plt.figure()
+    plt.imshow(color_img2, vmin=0, vmax=255, cmap='gray')
+    plt.show()
+
+    color_img[:, :] = color_img2[:, :]
+    shm.close()
+    shm.unlink()
+
 
 def main(settings):
     global posi
