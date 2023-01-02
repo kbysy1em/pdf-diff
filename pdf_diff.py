@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import csv
 import pdf2image
 import pprint
 import sys
@@ -115,23 +116,118 @@ def main(settings):
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
-    print('比較元画像の基準点をクリックしてください')
-    fig = plt.figure()
-    plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
-    fig.canvas.mpl_connect('button_press_event', onclick2)
+    print('輪郭を検出しています')
+#    _, thresh = cv2.threshold(img1, 127, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(img1, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+
+    # with open('kakunin.csv', 'wt') as fout:
+    #     cout = csv.writer(fout)
+    #     cout.writerows(contours)
+
+    img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+
+    rects = []
+    # 輪郭の点の描画
+    for i, contour in enumerate(contours):
+    # contour = contours[1]
+        # # 輪郭を描画
+        # cv2.drawContours(img_disp, contours, i, (255, 0, 0), 2)
+
+        # # 傾いていない外接する矩形領域
+        # x,y,w,h = cv2.boundingRect(contour)
+        # cv2.rectangle(img_disp,(x,y),(x+w-1,y+h-1),(0,255,0),2)
+
+        # 傾いた外接する矩形領域
+        rect = cv2.minAreaRect(contour)
+        rects.append(rect)
+
+    rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
+
+
+    rect = rects[1]
+    box = cv2.boxPoints(rect)
+    box = np.intp(box)
+    print(box)
+    cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
+
+    points1 = sorted(box, key=lambda x: x[0]+x[1])
+    y1 = points1[0][0]
+    x1 = points1[0][1]
+    # for rect in rects:
+    #     print(rect)
+    #     print(type(rect))
+    #     box = cv2.boxPoints(rect)
+    #     box = np.intp(box)
+    #     cv2.drawContours(img_disp,[box],0,(0,0,255), 2)
+
+    plt.imshow(img_disp)
     plt.show()
-    x1, y1 = posi.pop()
+
+    # # 画像の表示
+    # cv2.imshow("Image", img_disp)
+    # # キー入力待ち(ここで画像が表示される)
+    # cv2.waitKey()
+
+
+    # rect = cv2.minAreaRect(cnt)
+    # box = cv2.boxPoints(rect)
+    # box = np.int0(box)
+
+    # im = cv2.merge((img1, img1, img1))
+    # im = cv2.drawContours(im,[box],0,(0,0,255),2)
+
+    # plt.imshow(im)
+    # plt.show()
+
+    # print('比較元画像の基準点をクリックしてください')
+    # fig = plt.figure()
+    # plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
+    # fig.canvas.mpl_connect('button_press_event', onclick2)
+    # plt.show()
+    # if not posi:
+    #     print('座標が指定されていません')
+    #     sys.exit()
+    # x1, y1 = posi.pop()
 
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
-    print('比較先画像の基準点をクリックしてください')
-    fig = plt.figure()
-    plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
-    fig.canvas.mpl_connect('button_press_event', onclick2)
+    print('輪郭を検出しています')
+    contours, hierarchy = cv2.findContours(img2, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+    img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+
+    rects = []
+    # 輪郭の点の描画
+    for i, contour in enumerate(contours):
+        rect = cv2.minAreaRect(contour)
+        rects.append(rect)
+
+    rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
+
+
+    rect = rects[1]
+    box = cv2.boxPoints(rect)
+    box = np.intp(box)
+    print(box)
+    cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
+
+    points2 = sorted(box, key=lambda x: x[0]+x[1])
+    y2 = points2[0][0]
+    x2 = points2[0][1]
+
+    plt.imshow(img_disp)
     plt.show()
-    x2, y2 = posi.pop()
+
+    # print('比較先画像の基準点をクリックしてください')
+    # fig = plt.figure()
+    # plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
+    # fig.canvas.mpl_connect('button_press_event', onclick2)
+    # plt.show()
+    # if not posi:
+    #     print('座標が指定されていません')
+    #     sys.exit()
+    # x2, y2 = posi.pop()
 
     img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
@@ -197,6 +293,10 @@ if __name__ == '__main__':
         settings['filename1'] = sys.argv[1]
         settings['filename2'] = sys.argv[2]
         main(settings)
+
+    except SystemExit as e:
+        print('終了します')
+        print(e)
 
     except:
         print('Error: ')
