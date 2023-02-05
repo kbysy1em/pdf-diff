@@ -96,9 +96,6 @@ def check_and_color_img(settings, img1, img2, color_img):
     p2.join()
     p3.join()
 
-    # work(settings, img1, img2, color_img, 0, 50)
-    # work(settings, img1, img2, color_img, 50, 100)
-    # work(settings, img1, img2, color_img, 100)
     plt.figure()
     plt.imshow(color_img2, vmin=0, vmax=255, cmap='gray')
     plt.show()
@@ -116,68 +113,47 @@ def main(settings):
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
-    print('輪郭を検出しています')
-#    _, thresh = cv2.threshold(img1, 127, 255, cv2.THRESH_BINARY)
-    contours, hierarchy = cv2.findContours(img1, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+    print('直線を検出しています')
+#    reversed_img1 = cv2.bitwise_not(img1)
+    reversed_img1 = cv2.Canny(img1, 150, 300, L2gradient=True)
+    plt.imshow(reversed_img1, cmap='gray')
+    plt.show()
 
-    # with open('kakunin.csv', 'wt') as fout:
-    #     cout = csv.writer(fout)
-    #     cout.writerows(contours)
-
+    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/360, threshold=100, minLineLength=300, maxLineGap=10)
     img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    
+    print('直線を描写しています')
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
 
-    rects = []
-    # 輪郭の点の描画
-    for i, contour in enumerate(contours):
-    # contour = contours[1]
-        # # 輪郭を描画
-        # cv2.drawContours(img_disp, contours, i, (255, 0, 0), 2)
+        # 赤線を引く
+        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (0,0,255), 1)
 
-        # # 傾いていない外接する矩形領域
-        # x,y,w,h = cv2.boundingRect(contour)
-        # cv2.rectangle(img_disp,(x,y),(x+w-1,y+h-1),(0,255,0),2)
+        # img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
 
-        # 傾いた外接する矩形領域
-        rect = cv2.minAreaRect(contour)
-        rects.append(rect)
+    # rects = []
+    # # 輪郭の点の描画
+    # for contour in contours:
+    #     # 傾いた外接する矩形領域
+    #     rect = cv2.minAreaRect(contour)
+    #     rects.append(rect)
 
-    rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
+    # rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
 
+    # rect = rects[1]
+    # box = cv2.boxPoints(rect)
+    # box = np.intp(box)
+    # print(box)
+    # cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
 
-    rect = rects[1]
-    box = cv2.boxPoints(rect)
-    box = np.intp(box)
-    print(box)
-    cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
-
-    points1 = sorted(box, key=lambda x: x[0]+x[1])
-    y1 = points1[0][0]
-    x1 = points1[0][1]
-    # for rect in rects:
-    #     print(rect)
-    #     print(type(rect))
-    #     box = cv2.boxPoints(rect)
-    #     box = np.intp(box)
-    #     cv2.drawContours(img_disp,[box],0,(0,0,255), 2)
+    # points1 = sorted(box, key=lambda x: x[0]+x[1])
+    # y1 = points1[0][0]
+    # x1 = points1[0][1]
+    # print(f'{x1=}, {y1=}')
 
     plt.imshow(img_disp)
     plt.show()
-
-    # # 画像の表示
-    # cv2.imshow("Image", img_disp)
-    # # キー入力待ち(ここで画像が表示される)
-    # cv2.waitKey()
-
-
-    # rect = cv2.minAreaRect(cnt)
-    # box = cv2.boxPoints(rect)
-    # box = np.int0(box)
-
-    # im = cv2.merge((img1, img1, img1))
-    # im = cv2.drawContours(im,[box],0,(0,0,255),2)
-
-    # plt.imshow(im)
-    # plt.show()
+    sys.exit()
 
     # print('比較元画像の基準点をクリックしてください')
     # fig = plt.figure()
@@ -194,7 +170,8 @@ def main(settings):
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
     print('輪郭を検出しています')
-    contours, hierarchy = cv2.findContours(img2, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+    _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(img2, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
     img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
 
     rects = []
@@ -215,6 +192,7 @@ def main(settings):
     points2 = sorted(box, key=lambda x: x[0]+x[1])
     y2 = points2[0][0]
     x2 = points2[0][1]
+    print(f'{x2=}, {y2=}')
 
     plt.imshow(img_disp)
     plt.show()
