@@ -3,16 +3,18 @@ import cv2
 import csv
 import pdf2image
 import pprint
+import random
 import sys
 import time
 import traceback
+import math
 import matplotlib as mpl
 from concurrent.futures import (ProcessPoolExecutor, Future)
 from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process
 from multiprocessing import shared_memory
-from settings import * 
+from settings import *
 
 posi = []
 
@@ -113,21 +115,54 @@ def main(settings):
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
-    print('直線を検出しています')
-#    reversed_img1 = cv2.bitwise_not(img1)
-    reversed_img1 = cv2.Canny(img1, 150, 300, L2gradient=True)
-    plt.imshow(reversed_img1, cmap='gray')
-    plt.show()
 
-    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/360, threshold=100, minLineLength=300, maxLineGap=10)
+    print('直線を検出しています')
+    _, img1 = cv2.threshold(img1, 240, 255, cv2.THRESH_BINARY)
+    reversed_img1 = cv2.bitwise_not(img1)
+    # plt.imshow(reversed_img1, cmap='gray')
+    # plt.show()
+
+    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/360, threshold=100, minLineLength=1000, maxLineGap=10)
     img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
     
+    ## 画像の左半分の中で最も長い縦線を抽出する
+#    lines = map(lambda x: x.append(1), lines )
+    line_properties = np.zeros((lines.shape[0], 3))
+    line_properties[:, 0] = [((x[0][2] - x[0][0])**2 + (x[0][3] - x[0][1])**2)**0.5 for x in lines]
+
+    def get_line_orientation(line, slope_thresh=0.5):
+        x1, y1, x2, y2 = line
+        delta_x = x2 - x1
+        delta_y = y2 - y1
+        
+        # 傾きが無限大の場合は縦線と判定する
+        if delta_x == 0:
+            print('delta_x=0')
+            return 'VER'
+        
+        slope = abs(delta_y / delta_x)
+        print(delta_x, delta_y, slope)
+        
+        # 傾きが閾値より大きい場合は縦線と判定する
+        if slope > slope_thresh:
+            return 'VER'
+        else:
+            return 'HOR'
+
+    orientations = [get_line_orientation(line[0]) for line in lines]
+#    line_properties[:, 1] = map(get_line_orientation, lines)
+    print(orientations)
+
     print('直線を描写しています')
     for line in lines:
+        # 原点は左上で縦方向がY
         x1, y1, x2, y2 = line[0]
 
         # 赤線を引く
-        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (0,0,255), 1)
+        b = random.randrange(0, 255, 1)
+        g = random.randrange(0, 255, 1)
+        r = random.randrange(0, 255, 1)
+        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 1)
 
         # img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
 
@@ -153,7 +188,6 @@ def main(settings):
 
     plt.imshow(img_disp)
     plt.show()
-    sys.exit()
 
     # print('比較元画像の基準点をクリックしてください')
     # fig = plt.figure()
@@ -168,6 +202,23 @@ def main(settings):
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
+
+    print('直線を検出しています')
+    _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
+    reversed_img2 = cv2.bitwise_not(img2)
+
+    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/360, threshold=100, minLineLength=1000, maxLineGap=10)
+    img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+    
+    print('直線を描写しています')
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+
+        # 赤線を引く
+        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (0,0,255), 3)
+    plt.imshow(img_disp)
+    plt.show()
+    sys.exit()
 
     print('輪郭を検出しています')
     _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
