@@ -126,45 +126,85 @@ def main(settings):
     img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
     
     ## 画像の左半分の中で最も長い縦線を抽出する
-#    lines = map(lambda x: x.append(1), lines )
-    line_properties = np.zeros((lines.shape[0], 3))
-    line_properties[:, 0] = [((x[0][2] - x[0][0])**2 + (x[0][3] - x[0][1])**2)**0.5 for x in lines]
-
-    def get_line_orientation(line, slope_thresh=0.5):
-        x1, y1, x2, y2 = line
-        delta_x = x2 - x1
-        delta_y = y2 - y1
-        
-        # 傾きが無限大の場合は縦線と判定する
-        if delta_x == 0:
-            print('delta_x=0')
-            return 'VER'
-        
-        slope = abs(delta_y / delta_x)
-        print(delta_x, delta_y, slope)
-        
-        # 傾きが閾値より大きい場合は縦線と判定する
-        if slope > slope_thresh:
-            return 'VER'
-        else:
-            return 'HOR'
-
-    orientations = [get_line_orientation(line[0]) for line in lines]
-#    line_properties[:, 1] = map(get_line_orientation, lines)
-    print(orientations)
-
-    print('直線を描写しています')
+    # lines = map(lambda x: x.append(1), lines )
+    # 縦線でかつ画像の右側にある最も長い線分(line_a)を求める
+    line_a = None
+    max_length_a = 0
     for line in lines:
-        # 原点は左上で縦方向がY
         x1, y1, x2, y2 = line[0]
+        length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if (x1 < img_disp.shape[1]/2) and (x2 < img_disp.shape[1]/2) and (min(y1, y2) < 500) and (length > max_length_a) and abs(y2-y1) > abs(x2-x1):
+            max_length_a = length
+            line_a = line
 
-        # 赤線を引く
-        b = random.randrange(0, 255, 1)
-        g = random.randrange(0, 255, 1)
-        r = random.randrange(0, 255, 1)
-        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 1)
+    # 横線でかつ画像の上側にある最も長い線分(line_b)を求める
+    line_b = None
+    max_length_b = 0
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        if (y1 < img_disp.shape[0]/2) and (y2 < img_disp.shape[0]/2) and (length > max_length_b) and abs(x2-x1) > abs(y2-y1):
+            max_length_b = length
+            line_b = line
 
-        # img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    # line_aとline_bの交点を求める
+    x1, y1, x2, y2 = line_a[0]
+    x3, y3, x4, y4 = line_b[0]
+
+    print(line_a)
+    print(line_b)
+    x = int((x1 + x2) / 2)
+    y = int((y3 + y4) / 2)
+
+    # denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+    # print(denom)
+    # if denom != 0:
+    #    x = np.int64(((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4)) / denom)
+    #    y = np.int64(((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4)) / denom)
+    #     print((np.float64(x1)*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))
+    #     x = (np.float64(x1)*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4) / np.float64(denom)
+    #     x = int(round(x))
+
+    #     y = (np.float64(x1)*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4) / np.float64(denom)
+    #     y = int(round(y))
+    #     print("Intersection point: ({}, {})".format(int(x), int(y)))
+    # else:
+    #     print("Lines are parallel")
+
+    print("Intersection point: ({}, {})".format(int(x), int(y)))
+    print('直線を描写しています')
+    # for line in lines:
+    #     # 原点は左上で縦方向がY
+    #     x1, y1, x2, y2 = line[0]
+
+    #     # 赤線を引く
+    #     b = random.randrange(0, 255, 1)
+    #     g = random.randrange(0, 255, 1)
+    #     r = random.randrange(0, 255, 1)
+    #     img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 1)
+    # 原点は左上で縦方向がY
+    print(line_a[0])
+    x1, y1, x2, y2 = line_a[0]
+    # 赤線を引く
+    b = random.randrange(0, 255, 1)
+    g = random.randrange(0, 255, 1)
+    r = random.randrange(0, 255, 1)
+    img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 3)
+
+    x1, y1, x2, y2 = line_b[0]
+    # 赤線を引く
+    b = random.randrange(0, 255, 1)
+    g = random.randrange(0, 255, 1)
+    r = random.randrange(0, 255, 1)
+    img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 3)
+
+    # 交点を整数値に変換
+    intersection = (int(x), int(y))
+    print(intersection)
+    # 画像上に交点を表示する
+    img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
+
 
     # rects = []
     # # 輪郭の点の描画
