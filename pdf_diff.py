@@ -16,6 +16,9 @@ from multiprocessing import Process
 from multiprocessing import shared_memory
 from settings import *
 
+# opencvとmatplotでx方向とy方向が異なる？
+# matplotでは左上が原点でx方向が横、y方向が縦
+
 posi = []
 
 def elapsed_time(f):
@@ -115,18 +118,70 @@ def main(settings):
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
-
     print('直線を検出しています')
     _, img1 = cv2.threshold(img1, 240, 255, cv2.THRESH_BINARY)
     reversed_img1 = cv2.bitwise_not(img1)
-    # plt.imshow(reversed_img1, cmap='gray')
-    # plt.show()
 
-    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/360, threshold=100, minLineLength=1000, maxLineGap=10)
+    # 検出される線分の長さは3000以上とする
+    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/180, threshold=50, minLineLength=1000, maxLineGap=10)
     img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+
+    # 元画像上に線分を描画するための色
+    red = (0, 0, 255)
+    blue = (255, 0, 0)
+
+    # 縦線と横線を格納するリスト
+    v_lines = []
+    h_lines = []
+
+    # 角度によってフィルタリングする
+    angle_threshold = np.pi / 4
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+
+        # 線分の角度を計算する(angle=-1.54～+1.54, angle=0は横線)
+        angle = np.arctan2(y2 - y1, x2 - x1)
+
+        # 縦線か横線かを判定する
+        if abs(abs(angle) - np.pi / 2) < angle_threshold:
+            # 縦線の場合 → x1,x2がほぼ等しい
+            v_lines.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
+        elif abs(angle) < angle_threshold:
+            # 横線の場合 → y1,y2がほぼ等しい
+            h_lines.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+
+    #場所によるフィルタリング
+    img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    v_lines1 = []
+    h_lines1 = []
+    for line in h_lines:
+        x1, y1, x2, y2 = line[0]
+        if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
+            h_lines1.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
     
+    for line in v_lines:
+        x1, y1, x2, y2 = line[0]
+        if x1 < 500 and x2 < 500:
+            v_lines1.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+    
+    img_disp = cv2.cvtColor(img_disp, cv2.COLOR_BGR2RGB)
+    plt.imshow(img_disp)
+    plt.show()
+    print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
+
+#線分リストの中でxの分散を調べて、3sigmaを超えていないか確認する
+#ここで、直線の平均化を行う
+#交点を求める
+
+    plt.imshow(img_disp)
+    plt.show()
+
+
     ## 画像の左半分の中で最も長い縦線を抽出する
-    # lines = map(lambda x: x.append(1), lines )
     # 縦線でかつ画像の右側にある最も長い線分(line_a)を求める
     line_a = None
     max_length_a = 0
@@ -155,21 +210,6 @@ def main(settings):
     print(line_b)
     x = int((x1 + x2) / 2)
     y = int((y3 + y4) / 2)
-
-    # denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
-    # print(denom)
-    # if denom != 0:
-    #    x = np.int64(((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4)) / denom)
-    #    y = np.int64(((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4)) / denom)
-    #     print((np.float64(x1)*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))
-    #     x = (np.float64(x1)*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4) / np.float64(denom)
-    #     x = int(round(x))
-
-    #     y = (np.float64(x1)*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4) / np.float64(denom)
-    #     y = int(round(y))
-    #     print("Intersection point: ({}, {})".format(int(x), int(y)))
-    # else:
-    #     print("Lines are parallel")
 
     print("Intersection point: ({}, {})".format(int(x), int(y)))
     print('直線を描写しています')
@@ -205,29 +245,8 @@ def main(settings):
     img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
     img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
 
-
-    # rects = []
-    # # 輪郭の点の描画
-    # for contour in contours:
-    #     # 傾いた外接する矩形領域
-    #     rect = cv2.minAreaRect(contour)
-    #     rects.append(rect)
-
-    # rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
-
-    # rect = rects[1]
-    # box = cv2.boxPoints(rect)
-    # box = np.intp(box)
-    # print(box)
-    # cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
-
-    # points1 = sorted(box, key=lambda x: x[0]+x[1])
-    # y1 = points1[0][0]
-    # x1 = points1[0][1]
-    # print(f'{x1=}, {y1=}')
-
-    plt.imshow(img_disp)
-    plt.show()
+    # plt.imshow(img_disp)
+    # plt.show()
 
     # print('比較元画像の基準点をクリックしてください')
     # fig = plt.figure()
