@@ -15,8 +15,10 @@ from matplotlib import pyplot as plt
 from multiprocessing import Process
 from multiprocessing import shared_memory
 from settings import *
+from sklearn.decomposition import PCA
 
 # opencvとmatplotでx方向とy方向が異なる？
+# opencvでは左上が原点でx方向が縦、y方向が横
 # matplotでは左上が原点でx方向が横、y方向が縦
 
 posi = []
@@ -173,9 +175,21 @@ def main(settings):
     plt.show()
     print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
 
-#線分リストの中でxの分散を調べて、3sigmaを超えていないか確認する
-#ここで、直線の平均化を行う
-#交点を求める
+    h_points = []
+
+    for line in h_lines1:
+        x1, y1, x2, y2 = line[0]
+        h_points.append([x1, y1])
+        h_points.append([x2, y2])
+
+    pca = PCA(n_components=1)
+    pca.fit(h_points)
+    print(pca.components_)
+
+    if pca.components_[0][1] < 0.1:
+        y_values = [p[1] for p in h_points]
+        average = sum(y_values) / len(y_values)
+        print(average)
 
     plt.imshow(img_disp)
     plt.show()
@@ -393,3 +407,9 @@ if __name__ == '__main__':
         # pprint.pprint('Error: ', sys.exc_info()[0])
         # pprint.pprint(sys.exc_info()[1])
         # pprint.pprint(traceback.format_tb(sys.exc_info()[2]))
+
+
+#最小二乗法で直線の方程式を求める
+# https://dev.classmethod.jp/articles/pythonscikit-learn-pca1/
+# https://qiita.com/supersaiakujin/items/138c0d8e6511735f1f45
+#交点を求める
