@@ -188,79 +188,32 @@ def main(settings):
 
     if pca.components_[0][1] < 0.1:
         y_values = [p[1] for p in h_points]
-        average = sum(y_values) / len(y_values)
-        print(average)
+        y = sum(y_values) / len(y_values)
 
-    plt.imshow(img_disp)
-    plt.show()
+    v_points = []
 
-
-    ## 画像の左半分の中で最も長い縦線を抽出する
-    # 縦線でかつ画像の右側にある最も長い線分(line_a)を求める
-    line_a = None
-    max_length_a = 0
-    for line in lines:
+    for line in v_lines1:
         x1, y1, x2, y2 = line[0]
-        length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        if (x1 < img_disp.shape[1]/2) and (x2 < img_disp.shape[1]/2) and (min(y1, y2) < 500) and (length > max_length_a) and abs(y2-y1) > abs(x2-x1):
-            max_length_a = length
-            line_a = line
+        v_points.append([x1, y1])
+        v_points.append([x2, y2])
 
-    # 横線でかつ画像の上側にある最も長い線分(line_b)を求める
-    line_b = None
-    max_length_b = 0
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
-        if (y1 < img_disp.shape[0]/2) and (y2 < img_disp.shape[0]/2) and (length > max_length_b) and abs(x2-x1) > abs(y2-y1):
-            max_length_b = length
-            line_b = line
+    pca = PCA(n_components=1)
+    pca.fit(v_points)
+    print(pca.components_)
 
-    # line_aとline_bの交点を求める
-    x1, y1, x2, y2 = line_a[0]
-    x3, y3, x4, y4 = line_b[0]
-
-    print(line_a)
-    print(line_b)
-    x = int((x1 + x2) / 2)
-    y = int((y3 + y4) / 2)
+    if pca.components_[0][0] < 0.1:
+        x_values = [p[0] for p in v_points]
+        x = sum(x_values) / len(x_values)
 
     print("Intersection point: ({}, {})".format(int(x), int(y)))
     print('直線を描写しています')
-    # for line in lines:
-    #     # 原点は左上で縦方向がY
-    #     x1, y1, x2, y2 = line[0]
-
-    #     # 赤線を引く
-    #     b = random.randrange(0, 255, 1)
-    #     g = random.randrange(0, 255, 1)
-    #     r = random.randrange(0, 255, 1)
-    #     img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 1)
-    # 原点は左上で縦方向がY
-    print(line_a[0])
-    x1, y1, x2, y2 = line_a[0]
-    # 赤線を引く
-    b = random.randrange(0, 255, 1)
-    g = random.randrange(0, 255, 1)
-    r = random.randrange(0, 255, 1)
-    img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 3)
-
-    x1, y1, x2, y2 = line_b[0]
-    # 赤線を引く
-    b = random.randrange(0, 255, 1)
-    g = random.randrange(0, 255, 1)
-    r = random.randrange(0, 255, 1)
-    img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (b,g,r), 3)
 
     # 交点を整数値に変換
     intersection = (int(x), int(y))
-    print(intersection)
+
     # 画像上に交点を表示する
     img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
     img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
-
-    # plt.imshow(img_disp)
-    # plt.show()
 
     # print('比較元画像の基準点をクリックしてください')
     # fig = plt.figure()
@@ -272,6 +225,7 @@ def main(settings):
     #     sys.exit()
     # x1, y1 = posi.pop()
 
+    # images will be a list of PIL Image representing each page of the PDF document.
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
@@ -280,64 +234,101 @@ def main(settings):
     _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
     reversed_img2 = cv2.bitwise_not(img2)
 
-    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/360, threshold=100, minLineLength=1000, maxLineGap=10)
+    # 検出される線分の長さは3000以上とする
+    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/180, threshold=50, minLineLength=1000, maxLineGap=10)
     img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
-    
-    print('直線を描写しています')
+
+    # 縦線と横線を格納するリスト
+    v_lines = []
+    h_lines = []
+
+    # 角度によってフィルタリングする
+    angle_threshold = np.pi / 4
     for line in lines:
         x1, y1, x2, y2 = line[0]
 
-        # 赤線を引く
-        img_disp = cv2.line(img_disp, (x1,y1), (x2,y2), (0,0,255), 3)
-    plt.imshow(img_disp)
-    plt.show()
-    sys.exit()
+        # 線分の角度を計算する(angle=-1.54～+1.54, angle=0は横線)
+        angle = np.arctan2(y2 - y1, x2 - x1)
 
-    print('輪郭を検出しています')
-    _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(img2, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        # 縦線か横線かを判定する
+        if abs(abs(angle) - np.pi / 2) < angle_threshold:
+            # 縦線の場合 → x1,x2がほぼ等しい
+            v_lines.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
+        elif abs(angle) < angle_threshold:
+            # 横線の場合 → y1,y2がほぼ等しい
+            h_lines.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+
+    #場所によるフィルタリング
     img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
-
-    rects = []
-    # 輪郭の点の描画
-    for i, contour in enumerate(contours):
-        rect = cv2.minAreaRect(contour)
-        rects.append(rect)
-
-    rects.sort(key=lambda x: x[1][0]**2 + x[1][1]**2, reverse=True)
-
-
-    rect = rects[1]
-    box = cv2.boxPoints(rect)
-    box = np.intp(box)
-    print(box)
-    cv2.drawContours(img_disp, [box], 0, (0, 0, 255), 2)
-
-    points2 = sorted(box, key=lambda x: x[0]+x[1])
-    y2 = points2[0][0]
-    x2 = points2[0][1]
-    print(f'{x2=}, {y2=}')
-
+    v_lines1 = []
+    h_lines1 = []
+    for line in h_lines:
+        x1, y1, x2, y2 = line[0]
+        if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
+            h_lines1.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
+    
+    for line in v_lines:
+        x1, y1, x2, y2 = line[0]
+        if x1 < 500 and x2 < 500:
+            v_lines1.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+    
+    img_disp = cv2.cvtColor(img_disp, cv2.COLOR_BGR2RGB)
     plt.imshow(img_disp)
     plt.show()
+    print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
 
-    # print('比較先画像の基準点をクリックしてください')
-    # fig = plt.figure()
-    # plt.imshow(img2, vmin=0, vmax=255, cmap='gray')
-    # fig.canvas.mpl_connect('button_press_event', onclick2)
-    # plt.show()
-    # if not posi:
-    #     print('座標が指定されていません')
-    #     sys.exit()
-    # x2, y2 = posi.pop()
+    h_points = []
+
+    for line in h_lines1:
+        x1, y1, x2, y2 = line[0]
+        h_points.append([x1, y1])
+        h_points.append([x2, y2])
+
+    pca = PCA(n_components=1)
+    pca.fit(h_points)
+    print(pca.components_)
+
+    if pca.components_[0][1] < 0.1:
+        y_values = [p[1] for p in h_points]
+        yy = sum(y_values) / len(y_values)
+
+    v_points = []
+
+    for line in v_lines1:
+        x1, y1, x2, y2 = line[0]
+        v_points.append([x1, y1])
+        v_points.append([x2, y2])
+
+    pca = PCA(n_components=1)
+    pca.fit(v_points)
+    print(pca.components_)
+
+    if pca.components_[0][0] < 0.1:
+        x_values = [p[0] for p in v_points]
+        xx = sum(x_values) / len(x_values)
+
+    print("Intersection point: ({}, {})".format(int(xx), int(yy)))
+    print('直線を描写しています')
+
+    # 交点を整数値に変換
+    intersection = (int(x), int(y))
+
+    # 画像上に交点を表示する
+    img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
 
     img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
     print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
 
+
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
-    delta_x = x2 - x1
-    delta_y = y2 - y1
+    delta_x = xx - x
+    delta_y = yy - y
     print(f'移動量: {delta_x=}, {delta_y=}')
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
