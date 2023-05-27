@@ -115,68 +115,66 @@ def check_and_color_img(settings, img1, img2, color_img):
 def main(settings):
     global posi
 
+    # 元画像上に線分を描画するための色
+    RED = (0, 0, 255)
+    GREEN = (0, 255, 0)
+    BLUE = (255, 0, 0)
+
+    ANGLE_THRESHOLD = np.pi / 4
+    MIN_LENGTH = 3000
+
+    ######################  比較元  ########################
+
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
+    # 元バージョンでは1ページのみ処理する
     img1 = np.array(images1[0], dtype=np.uint8)
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     print('直線を検出しています')
     _, img1 = cv2.threshold(img1, 240, 255, cv2.THRESH_BINARY)
     reversed_img1 = cv2.bitwise_not(img1)
-
-    # 検出される線分の長さは3000以上とする
-    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/180, threshold=50, minLineLength=1000, maxLineGap=10)
+    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/180, threshold=50, minLineLength=MIN_LENGTH, maxLineGap=10)
+    # 確認用画像の準備
     img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
 
-    # 元画像上に線分を描画するための色
-    red = (0, 0, 255)
-    blue = (255, 0, 0)
-
-    # 縦線と横線を格納するリスト
-    v_lines = []
-    h_lines = []
+    print('直線をフィルタリングしています')
 
     # 角度によってフィルタリングする
-    angle_threshold = np.pi / 4
+    # 縦線横線の分類
+    v_lines = []
+    h_lines = []
     for line in lines:
         x1, y1, x2, y2 = line[0]
-
         # 線分の角度を計算する(angle=-1.54～+1.54, angle=0は横線)
         angle = np.arctan2(y2 - y1, x2 - x1)
 
         # 縦線か横線かを判定する
-        if abs(abs(angle) - np.pi / 2) < angle_threshold:
+        if abs(abs(angle) - np.pi / 2) < ANGLE_THRESHOLD:
             # 縦線の場合 → x1,x2がほぼ等しい
             v_lines.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
-        elif abs(angle) < angle_threshold:
+        elif abs(angle) < ANGLE_THRESHOLD:
             # 横線の場合 → y1,y2がほぼ等しい
             h_lines.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
 
     #場所によるフィルタリング
-    img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
-    v_lines1 = []
     h_lines1 = []
     for line in h_lines:
         x1, y1, x2, y2 = line[0]
         if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
             h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
     
+    v_lines1 = []
     for line in v_lines:
         x1, y1, x2, y2 = line[0]
         if x1 < 500 and x2 < 500:
             v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
     
-    img_disp = cv2.cvtColor(img_disp, cv2.COLOR_BGR2RGB)
-    plt.imshow(img_disp)
-    plt.show()
     print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
 
     h_points = []
-
     for line in h_lines1:
         x1, y1, x2, y2 = line[0]
         h_points.append([x1, y1])
@@ -188,10 +186,9 @@ def main(settings):
 
     if pca.components_[0][1] < 0.1:
         y_values = [p[1] for p in h_points]
-        y = sum(y_values) / len(y_values)
+        y_mean1 = sum(y_values) / len(y_values)
 
     v_points = []
-
     for line in v_lines1:
         x1, y1, x2, y2 = line[0]
         v_points.append([x1, y1])
@@ -203,17 +200,20 @@ def main(settings):
 
     if pca.components_[0][0] < 0.1:
         x_values = [p[0] for p in v_points]
-        x = sum(x_values) / len(x_values)
+        x_mean1 = sum(x_values) / len(x_values)
 
-    print("Intersection point: ({}, {})".format(int(x), int(y)))
+    print("Intersection point: ({}, {})".format(int(x_mean1), int(y_mean1)))
     print('直線を描写しています')
 
     # 交点を整数値に変換
-    intersection = (int(x), int(y))
-
+    intersection = (int(x_mean1), int(y_mean1))
+    print(intersection)
     # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
+    img_disp = cv2.line(img_disp, (intersection[0]-20, intersection[1]), (intersection[0]+20, intersection[1]), GREEN, 2)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-20), (intersection[0], intersection[1]+20), GREEN, 2)
+
+    plt.imshow(img_disp)
+    plt.show()
 
     # print('比較元画像の基準点をクリックしてください')
     # fig = plt.figure()
@@ -225,6 +225,9 @@ def main(settings):
     #     sys.exit()
     # x1, y1 = posi.pop()
 
+
+    ###########################  比較先  #################################
+
     # images will be a list of PIL Image representing each page of the PDF document.
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
@@ -233,17 +236,16 @@ def main(settings):
     print('直線を検出しています')
     _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
     reversed_img2 = cv2.bitwise_not(img2)
-
     # 検出される線分の長さは3000以上とする
-    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/180, threshold=50, minLineLength=1000, maxLineGap=10)
+    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/180, threshold=50, minLineLength=MIN_LENGTH, maxLineGap=10)
     img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
 
+    print('直線をフィルタリングしています')
     # 縦線と横線を格納するリスト
     v_lines = []
     h_lines = []
 
     # 角度によってフィルタリングする
-    angle_threshold = np.pi / 4
     for line in lines:
         x1, y1, x2, y2 = line[0]
 
@@ -251,38 +253,31 @@ def main(settings):
         angle = np.arctan2(y2 - y1, x2 - x1)
 
         # 縦線か横線かを判定する
-        if abs(abs(angle) - np.pi / 2) < angle_threshold:
+        if abs(abs(angle) - np.pi / 2) < ANGLE_THRESHOLD:
             # 縦線の場合 → x1,x2がほぼ等しい
             v_lines.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
-        elif abs(angle) < angle_threshold:
+        elif abs(angle) < ANGLE_THRESHOLD:
             # 横線の場合 → y1,y2がほぼ等しい
             h_lines.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
 
     #場所によるフィルタリング
-    img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
-    v_lines1 = []
     h_lines1 = []
     for line in h_lines:
         x1, y1, x2, y2 = line[0]
         if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
             h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), red, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
     
+    v_lines1 = []
     for line in v_lines:
         x1, y1, x2, y2 = line[0]
         if x1 < 500 and x2 < 500:
             v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), blue, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
     
-    img_disp = cv2.cvtColor(img_disp, cv2.COLOR_BGR2RGB)
-    plt.imshow(img_disp)
-    plt.show()
     print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
 
     h_points = []
-
     for line in h_lines1:
         x1, y1, x2, y2 = line[0]
         h_points.append([x1, y1])
@@ -294,10 +289,9 @@ def main(settings):
 
     if pca.components_[0][1] < 0.1:
         y_values = [p[1] for p in h_points]
-        yy = sum(y_values) / len(y_values)
+        y_mean2 = sum(y_values) / len(y_values)
 
     v_points = []
-
     for line in v_lines1:
         x1, y1, x2, y2 = line[0]
         v_points.append([x1, y1])
@@ -309,26 +303,26 @@ def main(settings):
 
     if pca.components_[0][0] < 0.1:
         x_values = [p[0] for p in v_points]
-        xx = sum(x_values) / len(x_values)
+        x_mean2 = sum(x_values) / len(x_values)
 
-    print("Intersection point: ({}, {})".format(int(xx), int(yy)))
+    print("Intersection point: ({}, {})".format(int(x_mean2), int(y_mean2)))
     print('直線を描写しています')
 
     # 交点を整数値に変換
-    intersection = (int(x), int(y))
-
+    intersection = (int(x_mean2), int(y_mean2))
     # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-10, intersection[1]), (intersection[0]+10, intersection[1]), (0, 0, 255), 2)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-10), (intersection[0], intersection[1]+10), (0, 0, 255), 2)
+    img_disp = cv2.line(img_disp, (intersection[0]-20, intersection[1]), (intersection[0]+20, intersection[1]), GREEN, 2)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-20), (intersection[0], intersection[1]+20), GREEN, 2)
+    plt.imshow(img_disp)
+    plt.show()
 
     img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
     print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
 
-
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
-    delta_x = xx - x
-    delta_y = yy - y
+    delta_x = x_mean2 - x_mean1
+    delta_y = y_mean2 - y_mean1
     print(f'移動量: {delta_x=}, {delta_y=}')
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
