@@ -1,13 +1,10 @@
 import numpy as np
 import cv2
-import csv
 import pdf2image
 import pprint
-import random
 import sys
 import time
 import traceback
-import math
 import matplotlib as mpl
 from concurrent.futures import (ProcessPoolExecutor, Future)
 from functools import wraps
@@ -121,7 +118,12 @@ def main(settings):
     BLUE = (255, 0, 0)
 
     ANGLE_THRESHOLD = np.pi / 4
-    MIN_LENGTH = 3000
+    MIN_LENGTH = 500
+    MIN_X = 0
+    MAX_X = 500
+    MIN_Y = 300
+    MAX_Y = 500
+    print(f'{MIN_LENGTH=}, {MIN_X=}, {MAX_X=}, {MIN_Y=}, {MAX_Y=}')
 
     ######################  比較元  ########################
 
@@ -161,18 +163,18 @@ def main(settings):
     h_lines1 = []
     for line in h_lines:
         x1, y1, x2, y2 = line[0]
-        if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
+        if (y1 > MIN_Y and y1 < MAX_Y) and (y2 > MIN_Y and y2 < MAX_Y):
             h_lines1.append(line)
             cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
     
     v_lines1 = []
     for line in v_lines:
         x1, y1, x2, y2 = line[0]
-        if x1 < 500 and x2 < 500:
+        if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
             v_lines1.append(line)
             cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
     
-    print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
+    print(f'検出数: 横線 {len(h_lines1)}, 縦線 {len(v_lines1)}')
 
     h_points = []
     for line in h_lines1:
@@ -186,7 +188,10 @@ def main(settings):
 
     if pca.components_[0][1] < 0.1:
         y_values = [p[1] for p in h_points]
+        print(f'{y_values=}')
         y_mean1 = sum(y_values) / len(y_values)
+    else:
+        raise NotImplementedError()
 
     v_points = []
     for line in v_lines1:
@@ -200,7 +205,10 @@ def main(settings):
 
     if pca.components_[0][0] < 0.1:
         x_values = [p[0] for p in v_points]
+        print(f'{x_values=}')
         x_mean1 = sum(x_values) / len(x_values)
+    else:
+        raise NotImplementedError()
 
     print("Intersection point: ({}, {})".format(int(x_mean1), int(y_mean1)))
     print('直線を描写しています')
