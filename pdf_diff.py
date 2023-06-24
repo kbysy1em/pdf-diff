@@ -18,6 +18,12 @@ from sklearn.decomposition import PCA
 # opencvでは左上が原点でx方向が縦、y方向が横
 # matplotでは左上が原点でx方向が横、y方向が縦
 
+
+#TODO
+# ビンのサイズ指定
+# ピークが一戸だった場合には何もしない
+# PCAの位置は今のところがベストか？
+
 posi = []
 
 def elapsed_time(f):
@@ -108,11 +114,7 @@ def check_and_color_img(settings, img1, img2, color_img):
     shm.close()
     shm.unlink()
 
-
-def main(settings):
-    global posi
-
-    # 元画像上に線分を描画するための色
+def get_origin(img):
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
@@ -125,20 +127,12 @@ def main(settings):
     MAX_Y = 500
     print(f'{MIN_LENGTH=}, {MIN_X=}, {MAX_X=}, {MIN_Y=}, {MAX_Y=}')
 
-    ######################  比較元  ########################
-
-    # images will be a list of PIL Image representing each page of the PDF document.
-    images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
-    # 元バージョンでは1ページのみ処理する
-    img1 = np.array(images1[0], dtype=np.uint8)
-    print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
-
     print('直線を検出しています')
-    _, img1 = cv2.threshold(img1, 240, 255, cv2.THRESH_BINARY)
-    reversed_img1 = cv2.bitwise_not(img1)
-    lines = cv2.HoughLinesP(reversed_img1, rho=1, theta=np.pi/180, threshold=50, minLineLength=MIN_LENGTH, maxLineGap=10)
+    _, img = cv2.threshold(img, 240, 255, cv2.THRESH_BINARY)
+    reversed_img = cv2.bitwise_not(img)
+    lines = cv2.HoughLinesP(reversed_img, rho=1, theta=np.pi/180, threshold=50, minLineLength=MIN_LENGTH, maxLineGap=10)
     # 確認用画像の準備
-    img_disp = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    img_disp = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     print('直線をフィルタリングしています')
 
@@ -187,9 +181,19 @@ def main(settings):
     print(pca.components_)
 
     if pca.components_[0][1] < 0.1:
-        y_values = [p[1] for p in h_points]
-        print(f'{y_values=}')
-        y_mean1 = sum(y_values) / len(y_values)
+        values = [p[1] for p in h_points]
+        print(f'{values=}')
+
+        hist, bins, _ = plt.hist(values)
+        plt.show()
+
+        highest_peak_bin = np.argmax(hist)
+        start_bin = bins[highest_peak_bin]
+        end_bin = bins[highest_peak_bin+1]
+        peak_elements = [v for v in values if start_bin <= v < end_bin]
+        print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+
+        y_mean1 = sum(peak_elements) / len(peak_elements)
     else:
         raise NotImplementedError()
 
@@ -205,8 +209,18 @@ def main(settings):
 
     if pca.components_[0][0] < 0.1:
         x_values = [p[0] for p in v_points]
-        print(f'{x_values=}')
-        x_mean1 = sum(x_values) / len(x_values)
+        print(f'{values=}')
+
+        hist, bins, _ = plt.hist(values)
+        plt.show()
+
+        highest_peak_bin = np.argmax(hist)
+        start_bin = bins[highest_peak_bin]
+        end_bin = bins[highest_peak_bin+1]
+        peak_elements = [v for v in values if start_bin <= v < end_bin]
+        print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+
+        x_mean1 = sum(peak_elements) / len(peak_elements)
     else:
         raise NotImplementedError()
 
@@ -233,6 +247,20 @@ def main(settings):
     #     sys.exit()
     # x1, y1 = posi.pop()
 
+    return intersection
+
+def main(settings):
+    global posi
+
+    ######################  比較元  ########################
+
+    # images will be a list of PIL Image representing each page of the PDF document.
+    images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
+    # 元バージョンでは1ページのみ処理する
+    img1 = np.array(images1[0], dtype=np.uint8)
+    print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
+
+    x_mean1, y_mean1 = get_origin(img1)
 
     ###########################  比較先  #################################
 
@@ -241,88 +269,7 @@ def main(settings):
     img2 = np.array(images2[0], dtype=np.uint8)
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
-    print('直線を検出しています')
-    _, img2 = cv2.threshold(img2, 240, 255, cv2.THRESH_BINARY)
-    reversed_img2 = cv2.bitwise_not(img2)
-    # 検出される線分の長さは3000以上とする
-    lines = cv2.HoughLinesP(reversed_img2, rho=1, theta=np.pi/180, threshold=50, minLineLength=MIN_LENGTH, maxLineGap=10)
-    img_disp = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
-
-    print('直線をフィルタリングしています')
-    # 縦線と横線を格納するリスト
-    v_lines = []
-    h_lines = []
-
-    # 角度によってフィルタリングする
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-
-        # 線分の角度を計算する(angle=-1.54～+1.54, angle=0は横線)
-        angle = np.arctan2(y2 - y1, x2 - x1)
-
-        # 縦線か横線かを判定する
-        if abs(abs(angle) - np.pi / 2) < ANGLE_THRESHOLD:
-            # 縦線の場合 → x1,x2がほぼ等しい
-            v_lines.append(line)
-        elif abs(angle) < ANGLE_THRESHOLD:
-            # 横線の場合 → y1,y2がほぼ等しい
-            h_lines.append(line)
-
-    #場所によるフィルタリング
-    h_lines1 = []
-    for line in h_lines:
-        x1, y1, x2, y2 = line[0]
-        if (y1 > 300 and y1 < 500) and (y2 > 300 and y2 < 500):
-            h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
-    
-    v_lines1 = []
-    for line in v_lines:
-        x1, y1, x2, y2 = line[0]
-        if x1 < 500 and x2 < 500:
-            v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
-    
-    print(f'検出数: 横線 {len(h_lines)}, 縦線 {len(v_lines)}')
-
-    h_points = []
-    for line in h_lines1:
-        x1, y1, x2, y2 = line[0]
-        h_points.append([x1, y1])
-        h_points.append([x2, y2])
-
-    pca = PCA(n_components=1)
-    pca.fit(h_points)
-    print(pca.components_)
-
-    if pca.components_[0][1] < 0.1:
-        y_values = [p[1] for p in h_points]
-        y_mean2 = sum(y_values) / len(y_values)
-
-    v_points = []
-    for line in v_lines1:
-        x1, y1, x2, y2 = line[0]
-        v_points.append([x1, y1])
-        v_points.append([x2, y2])
-
-    pca = PCA(n_components=1)
-    pca.fit(v_points)
-    print(pca.components_)
-
-    if pca.components_[0][0] < 0.1:
-        x_values = [p[0] for p in v_points]
-        x_mean2 = sum(x_values) / len(x_values)
-
-    print("Intersection point: ({}, {})".format(int(x_mean2), int(y_mean2)))
-    print('直線を描写しています')
-
-    # 交点を整数値に変換
-    intersection = (int(x_mean2), int(y_mean2))
-    # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-20, intersection[1]), (intersection[0]+20, intersection[1]), GREEN, 2)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-20), (intersection[0], intersection[1]+20), GREEN, 2)
-    plt.imshow(img_disp)
-    plt.show()
+    x_mean2, y_mean2 = get_origin(img2)
 
     img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
