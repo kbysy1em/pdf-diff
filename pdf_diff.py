@@ -18,12 +18,6 @@ from sklearn.decomposition import PCA
 # opencvでは左上が原点でx方向が縦、y方向が横
 # matplotでは左上が原点でx方向が横、y方向が縦
 
-
-#TODO
-# ビンのサイズ指定
-# ピークが一戸だった場合には何もしない
-# PCAの位置は今のところがベストか？
-
 posi = []
 
 def elapsed_time(f):
@@ -125,6 +119,8 @@ def get_origin(img):
     MAX_X = 500
     MIN_Y = 300
     MAX_Y = 500
+
+    RANGE_LIMIT = 50
     print(f'{MIN_LENGTH=}, {MIN_X=}, {MAX_X=}, {MIN_Y=}, {MAX_Y=}')
 
     print('直線を検出しています')
@@ -161,14 +157,7 @@ def get_origin(img):
             h_lines1.append(line)
             cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
     
-    v_lines1 = []
-    for line in v_lines:
-        x1, y1, x2, y2 = line[0]
-        if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
-            v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
-    
-    print(f'検出数: 横線 {len(h_lines1)}, 縦線 {len(v_lines1)}')
+    print(f'検出数: 横線 {len(h_lines1)}')
 
     h_points = []
     for line in h_lines1:
@@ -184,18 +173,30 @@ def get_origin(img):
         values = [p[1] for p in h_points]
         print(f'{values=}')
 
-        hist, bins, _ = plt.hist(values)
-        plt.show()
+        if (max(values) - min(values)) > RANGE_LIMIT:
+            hist, bins, _ = plt.hist(values)
+            plt.show()
 
-        highest_peak_bin = np.argmax(hist)
-        start_bin = bins[highest_peak_bin]
-        end_bin = bins[highest_peak_bin+1]
-        peak_elements = [v for v in values if start_bin <= v < end_bin]
-        print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+            highest_peak_bin = np.argmax(hist)
+            start_bin = bins[highest_peak_bin]
+            end_bin = bins[highest_peak_bin+1]
+            peak_elements = [v for v in values if start_bin <= v < end_bin]
+            print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
 
-        y_mean1 = sum(peak_elements) / len(peak_elements)
+            y_mean1 = sum(peak_elements) / len(peak_elements)
+        else:
+            y_mean1 = sum(values) / len(values)
     else:
         raise NotImplementedError()
+
+    v_lines1 = []
+    for line in v_lines:
+        x1, y1, x2, y2 = line[0]
+        if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
+            v_lines1.append(line)
+            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
+
+    print(f'検出数: 縦線 {len(v_lines1)}')
 
     v_points = []
     for line in v_lines1:
@@ -208,28 +209,29 @@ def get_origin(img):
     print(pca.components_)
 
     if pca.components_[0][0] < 0.1:
-        x_values = [p[0] for p in v_points]
+        values = [p[0] for p in v_points]
         print(f'{values=}')
 
-        hist, bins, _ = plt.hist(values)
-        plt.show()
+        if (max(values) - min(values)) > RANGE_LIMIT:
+            hist, bins, _ = plt.hist(values)
+            plt.show()
 
-        highest_peak_bin = np.argmax(hist)
-        start_bin = bins[highest_peak_bin]
-        end_bin = bins[highest_peak_bin+1]
-        peak_elements = [v for v in values if start_bin <= v < end_bin]
-        print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+            highest_peak_bin = np.argmax(hist)
+            start_bin = bins[highest_peak_bin]
+            end_bin = bins[highest_peak_bin+1]
+            peak_elements = [v for v in values if start_bin <= v < end_bin]
+            print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
 
-        x_mean1 = sum(peak_elements) / len(peak_elements)
+            x_mean1 = sum(peak_elements) / len(peak_elements)
+        else:
+            x_mean1 = sum(values) / len(values)
     else:
         raise NotImplementedError()
 
-    print("Intersection point: ({}, {})".format(int(x_mean1), int(y_mean1)))
-    print('直線を描写しています')
-
     # 交点を整数値に変換
     intersection = (int(x_mean1), int(y_mean1))
-    print(intersection)
+    print(f'{intersection=}')
+ 
     # 画像上に交点を表示する
     img_disp = cv2.line(img_disp, (intersection[0]-20, intersection[1]), (intersection[0]+20, intersection[1]), GREEN, 2)
     img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-20), (intersection[0], intersection[1]+20), GREEN, 2)
