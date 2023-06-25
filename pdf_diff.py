@@ -36,12 +36,12 @@ def onclick2(event):
     posi.append([int(event.ydata), int(event.xdata)])
     print(f'Clicked point: {posi[-1]}')
 
-def work(settings, img1, img2, color_img, start, stop=None):
+def work(settings, img1, img2, similarity, start, stop=None):
     if stop is None:
-        stop = int((img2.shape[0] - settings['intr_area_x']) / (settings['intr_area_x'] * settings['step_x']))
+        stop = int((img2.shape[0] - settings['intr_area_x']) / (settings['intr_area_x'] * settings['step_x']) + 1)
 
-    cshm = shared_memory.SharedMemory(name='color_img_shm')
-    cimg = np.ndarray(color_img.shape, dtype=np.uint8, buffer=cshm.buf)
+    cshm = shared_memory.SharedMemory(name='similarity_shm')
+    cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=cshm.buf)
 
     ite_xs = range(start, stop)
 
@@ -55,8 +55,6 @@ def work(settings, img1, img2, color_img, start, stop=None):
             template = img2[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
 
             method = eval('cv2.TM_CCORR_NORMED')
-            # methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
-            #             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
 
             scan_img = img1[settings['border_x'] + x - int(settings['intr_area_x'] * settings['scan_area_ratio_x'])
                 :settings['border_x'] + x + int(settings['intr_area_x'] * (settings['scan_area_ratio_x'] + 1)),
@@ -68,32 +66,30 @@ def work(settings, img1, img2, color_img, start, stop=None):
             _, max_val, _, _ = cv2.minMaxLoc(res)
 
             # 一致度が低い場所は色を付ける
-            WHITE = (255, 255, 255)
-            COLORED = (255, 99, 71)
+            # WHITE = (255, 255, 255)
+            # COLORED = (255, 99, 71)
 
-            if max_val < settings['criterion']:
-                part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
-                white_pixels = (part_img == WHITE).all(axis=2)
-                part_img[white_pixels] = COLORED
-                cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
+            # if max_val < settings['criterion']:
+            #part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
+            #     white_pixels = (part_img == WHITE).all(axis=2)
+            #     part_img[white_pixels] = COLORED
+            cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] += max_val
     cshm.close()
 
 @elapsed_time
-def check_and_color_img(settings, img1, img2, color_img):
-    # settings['ite_xs'] = range(int((img2.shape[0] - settings['intr_area_x']) 
-    #     / (settings['intr_area_x'] * settings['step_x'])))
+def get_similarity(settings, img1, img2, similarity):
     settings['ite_ys'] = range(int((img2.shape[1] - settings['intr_area_y'])
-        / (settings['intr_area_y'] * settings['step_y'])))
+        / (settings['intr_area_y'] * settings['step_y']) + 1))
 
     # print(color_img.dtype)
-    shm = shared_memory.SharedMemory(name='color_img_shm', create=True, size=color_img.nbytes)
+    shm = shared_memory.SharedMemory(name='similarity_shm', create=True, size=similarity.nbytes)
 
-    color_img2 = np.ndarray(color_img.shape, dtype=np.uint8, buffer=shm.buf)
-    color_img2[:, :] = color_img[:, :]
+    similarity2 = np.ndarray(similarity.shape, dtype=np.float64, buffer=shm.buf)
+    similarity2[:, :] = similarity[:, :]
 
-    p1 = Process(target=work, args=(settings, img1, img2, color_img, 0, 50))
-    p2 = Process(target=work, args=(settings, img1, img2, color_img, 50, 100))
-    p3 = Process(target=work, args=(settings, img1, img2, color_img, 100))
+    p1 = Process(target=work, args=(settings, img1, img2, similarity, 0, 50))
+    p2 = Process(target=work, args=(settings, img1, img2, similarity, 50, 100))
+    p3 = Process(target=work, args=(settings, img1, img2, similarity, 100))
 
     p1.start()
     p2.start()
@@ -103,7 +99,7 @@ def check_and_color_img(settings, img1, img2, color_img):
     p2.join()
     p3.join()
 
-    color_img[:, :] = color_img2[:, :]
+    similarity[:, :] = similarity2[:, :]
     shm.close()
     shm.unlink()
 
@@ -124,7 +120,9 @@ def get_origin(img):
     MAX_Y = 500
 
     RANGE_LIMIT = 50
-    print(f'{MIN_LENGTH=}, {MIN_X=}, {MAX_X=}, {MIN_Y=}, {MAX_Y=}')
+
+    if settings['debug']:
+        print(f'{MIN_LENGTH=}, {MIN_X=}, {MAX_X=}, {MIN_Y=}, {MAX_Y=}')
 
     print('直線を検出しています')
     _, img = cv2.threshold(img, 240, 255, cv2.THRESH_BINARY)
@@ -158,9 +156,9 @@ def get_origin(img):
         x1, y1, x2, y2 = line[0]
         if (y1 > MIN_Y and y1 < MAX_Y) and (y2 > MIN_Y and y2 < MAX_Y):
             h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), settings['red'], 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_red'], 2)
     
-    print(f'検出数: 横線 {len(h_lines1)}')
+    print(f'横線(y方向)検出数: {len(h_lines1)}')
 
     h_points = []
     for line in h_lines1:
@@ -170,11 +168,13 @@ def get_origin(img):
 
     pca = PCA(n_components=1)
     pca.fit(h_points)
-    print(pca.components_)
+    if settings['debug']:
+        print(f'{pca.components_=}')
 
     if pca.components_[0][1] < 0.1:
         values = [p[1] for p in h_points]
-        print(f'{values=}')
+        if settings['debug']:
+            print(f'{values=}')
 
         if (max(values) - min(values)) > RANGE_LIMIT:
             hist, bins, _ = plt.hist(values)
@@ -198,9 +198,9 @@ def get_origin(img):
         x1, y1, x2, y2 = line[0]
         if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
             v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), settings['blue'], 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_blue'], 2)
 
-    print(f'検出数: 縦線 {len(v_lines1)}')
+    print(f'縦線(x方向)検出数: {len(v_lines1)}')
 
     v_points = []
     for line in v_lines1:
@@ -210,11 +210,13 @@ def get_origin(img):
 
     pca = PCA(n_components=1)
     pca.fit(v_points)
-    print(pca.components_)
+    if settings['debug']:
+        print(f'{pca.components_=}')
 
     if pca.components_[0][0] < 0.1:
         values = [p[0] for p in v_points]
-        print(f'{values=}')
+        if settings['debug']:
+            print(f'{values=}')
 
         if (max(values) - min(values)) > RANGE_LIMIT:
             hist, bins, _ = plt.hist(values)
@@ -235,11 +237,11 @@ def get_origin(img):
 
     # 交点を整数値に変換
     intersection = (int(x_mean1), int(y_mean1))
-    print(f'{intersection=}')
+    print(f'原点: {intersection}')
  
     # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['green'], 5)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['green'], 5)
+    img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['cv_green'], 5)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['cv_green'], 5)
 
     print('原点の位置が気に入らない場合には原点の位置をクリックしてください')
 
@@ -256,19 +258,22 @@ def get_origin(img):
     return intersection
 
 def main(settings):
+    '''
+    PDFを読み込み比較する
+    '''
     global posi
+
+    print('\n============= STEP 01 =============')
 
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
-    # 元バージョンでは1ページのみ処理する
     img1 = np.array(images1[0], dtype=np.uint8)
     img1_original = img1.copy()
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     x_mean1, y_mean1 = get_origin(img1)
 
-    ###########################  比較先  #################################
-
+    print('\n============= STEP 02 =============')
     # images will be a list of PIL Image representing each page of the PDF document.
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
@@ -276,6 +281,10 @@ def main(settings):
 
     x_mean2, y_mean2 = get_origin(img2)
 
+    print('\n============= STEP 03 =============')
+
+    print(f'必要な片側余白量(x方向): {settings["border_x"]}')
+    print(f'必要な片側余白量(y方向): {settings["border_y"]}')
     img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
     print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
@@ -283,16 +292,35 @@ def main(settings):
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
     delta_x = x_mean2 - x_mean1
     delta_y = y_mean2 - y_mean1
-    print(f'移動量: {delta_x=}, {delta_y=}')
+    print('比較元画像の位置を調整します')
+    print(f'x方向移動量: {delta_x} (下が正方向)')
+    print(f'y方向移動量: {delta_y} (右が正方向)')
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
     img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
+    print('\n============= STEP 04 =============')
+
+    similarity = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img1, img2, similarity)
+    # np.savetxt('output.csv', similarity, delimiter=',')
+
+    print('\n============= STEP 05 =============')
     color_img = cv2.merge((img2, img2, img2))
+    start_x = int(settings['intr_area_x'] * settings['step_x'])
+    end_x = int(img2.shape[0] - 2 * settings['intr_area_x'] * settings['step_x'])
+    start_y = int(settings['intr_area_y'] * settings['step_y'])
+    end_y = int(img2.shape[1] - 2 * settings['intr_area_y'] * settings['step_y'])
 
-    check_and_color_img(settings, img1, img2, color_img)
+    color_img_sub = color_img[start_x:end_x, start_y:end_y]
+    img2_sub = img2[start_x:end_x, start_y:end_y]
+    similarity_sub = similarity[start_x:end_x, start_y:end_y]
+    
+    color_img_sub[(img2_sub < 128) & (similarity_sub < settings['criterion'])] = (255, 0, 0)
+    color_img_sub[(img2_sub >= 128) & (similarity_sub < settings['criterion'])] = (255, 192, 203)
 
+    color_img[start_x:end_x, start_y:end_y] = color_img_sub
     retry = True
     while retry:
         posi = []
@@ -350,6 +378,8 @@ def main(settings):
         color_img[x1:x2, y1:y2] = part_img
 
 if __name__ == '__main__':
+    print('============= STEP 00 =============')
+    print('比較用のファイル名を取得しています')
     try:
         if len(sys.argv) < 2:
             raise Exception('引数が足りません')

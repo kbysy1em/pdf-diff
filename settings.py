@@ -5,13 +5,13 @@ settings = {
     'step_y': 0.5,
     'scan_area_ratio_x': 0.5,
     'scan_area_ratio_y': 0.5,
-    'criterion': 0.98,  # 0.98
+    'criterion': 3.9,
 
     # color
-    'green': (0, 128, 0),
-    'pink': (203, 192, 255),
-    'red' : (0, 0, 255),
-    'blue' : (255, 0, 0),
+    'cv_green': (0, 128, 0),
+    'cv_pink': (203, 192, 255),
+    'cv_red' : (0, 0, 255),
+    'cv_blue' : (255, 0, 0),
 
     # others
     'debug': False
