@@ -107,9 +107,14 @@ def check_and_color_img(settings, img1, img2, color_img):
     shm.close()
     shm.unlink()
 
+
 def get_origin(img):
-    RED = (0, 0, 255)
-    BLUE = (255, 0, 0)
+    '''
+    原点を求める
+
+    自動で原点を検出し、画像を表示する。人間がそれを確認して気に入らなければ手動で原点を設定する
+    '''
+    global posi
 
     ANGLE_THRESHOLD = np.pi / 4
     MIN_LENGTH = 500
@@ -153,7 +158,7 @@ def get_origin(img):
         x1, y1, x2, y2 = line[0]
         if (y1 > MIN_Y and y1 < MAX_Y) and (y2 > MIN_Y and y2 < MAX_Y):
             h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), RED, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), settings['red'], 2)
     
     print(f'検出数: 横線 {len(h_lines1)}')
 
@@ -173,7 +178,8 @@ def get_origin(img):
 
         if (max(values) - min(values)) > RANGE_LIMIT:
             hist, bins, _ = plt.hist(values)
-            plt.show()
+            if settings['debug']:
+                plt.show()
 
             highest_peak_bin = np.argmax(hist)
             start_bin = bins[highest_peak_bin]
@@ -192,7 +198,7 @@ def get_origin(img):
         x1, y1, x2, y2 = line[0]
         if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
             v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), BLUE, 2)
+            cv2.line(img_disp, (x1, y1), (x2, y2), settings['blue'], 2)
 
     print(f'検出数: 縦線 {len(v_lines1)}')
 
@@ -212,7 +218,8 @@ def get_origin(img):
 
         if (max(values) - min(values)) > RANGE_LIMIT:
             hist, bins, _ = plt.hist(values)
-            plt.show()
+            if settings['debug']:
+                plt.show()
 
             highest_peak_bin = np.argmax(hist)
             start_bin = bins[highest_peak_bin]
@@ -234,25 +241,22 @@ def get_origin(img):
     img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['green'], 5)
     img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['green'], 5)
 
+    print('原点の位置が気に入らない場合には原点の位置をクリックしてください')
+
+    posi = []
+    fig = plt.figure()
     plt.imshow(img_disp)
+    fig.canvas.mpl_connect('button_press_event', onclick2)
     plt.show()
 
-    # print('比較元画像の基準点をクリックしてください')
-    # fig = plt.figure()
-    # plt.imshow(img1, vmin=0, vmax=255, cmap='gray')
-    # fig.canvas.mpl_connect('button_press_event', onclick2)
-    # plt.show()
-    # if not posi:
-    #     print('座標が指定されていません')
-    #     sys.exit()
-    # x1, y1 = posi.pop()
+    if posi:
+        intersection = posi.pop()
+        print(f'{intersection=}')
 
     return intersection
 
 def main(settings):
     global posi
-
-    ######################  比較元  ########################
 
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
