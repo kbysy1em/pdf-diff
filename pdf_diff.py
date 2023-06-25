@@ -117,7 +117,6 @@ def check_and_color_img(settings, img1, img2, color_img):
 
 def get_origin(img):
     RED = (0, 0, 255)
-    GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
 
     ANGLE_THRESHOLD = np.pi / 4
@@ -240,8 +239,8 @@ def get_origin(img):
     print(f'{intersection=}')
  
     # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-20, intersection[1]), (intersection[0]+20, intersection[1]), GREEN, 2)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-20), (intersection[0], intersection[1]+20), GREEN, 2)
+    img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['green'], 5)
+    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['green'], 5)
 
     plt.imshow(img_disp)
     plt.show()

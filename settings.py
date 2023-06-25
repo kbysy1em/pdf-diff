@@ -5,7 +5,9 @@ settings = {
     'step_y': 0.5,
     'scan_area_ratio_x': 0.5,
     'scan_area_ratio_y': 0.5,
-    'criterion': 0.98
+    'criterion': 0.98,
+    'green': (0, 128, 0),
+    'pink': (255, 192, 203)
 }
 
 settings['border_x'] = int(settings['intr_area_x'] * settings['scan_area_ratio_x'])
