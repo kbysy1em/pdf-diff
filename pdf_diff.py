@@ -68,10 +68,21 @@ def work(settings, img1, img2, color_img, start, stop=None):
             _, max_val, _, _ = cv2.minMaxLoc(res)
 
             # 一致度が低い場所は色を付ける
-            if max_val < 0.95:
+            WHITE = (255, 255, 255)
+            COLORED = (255, 99, 71)
+
+            # part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
+            # white_pixels = (part_img == WHITE).all(axis=2)
+            # redvalue = int((max_val - 0.9) * 2550)
+            # redvalue = redvalue if redvalue > 0 else 0
+            # part_img[white_pixels] = (redvalue, 0, 0) 
+            # cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
+
+
+            if max_val < settings['criterion']:
                 part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
-                white_pixels = (part_img == (255, 255, 255)).all(axis=2)
-                part_img[white_pixels] = (255, 99, 71)
+                white_pixels = (part_img == WHITE).all(axis=2)
+                part_img[white_pixels] = COLORED
                 cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
     cshm.close()
 
@@ -99,10 +110,6 @@ def check_and_color_img(settings, img1, img2, color_img):
     p1.join()
     p2.join()
     p3.join()
-
-    plt.figure()
-    plt.imshow(color_img2, vmin=0, vmax=255, cmap='gray')
-    plt.show()
 
     color_img[:, :] = color_img2[:, :]
     shm.close()
@@ -260,6 +267,7 @@ def main(settings):
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
     # 元バージョンでは1ページのみ処理する
     img1 = np.array(images1[0], dtype=np.uint8)
+    img1_original = img1.copy()
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     x_mean1, y_mean1 = get_origin(img1)
@@ -302,7 +310,7 @@ def main(settings):
         ax1 = fig.add_subplot(1, 2, 1)
         ax1.axis('off')
         ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
-        ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
+        ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
         
         ax2 = plt.subplot(1, 2, 2)
         ax2.axis('off')
