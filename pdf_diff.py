@@ -179,6 +179,8 @@ def get_origin(img):
             hist, bins, _ = plt.hist(values)
             if settings['debug']:
                 plt.show()
+            else:
+                plt.close()
 
             highest_peak_bin = np.argmax(hist)
             start_bin = bins[highest_peak_bin]
@@ -221,6 +223,8 @@ def get_origin(img):
             hist, bins, _ = plt.hist(values)
             if settings['debug']:
                 plt.show()
+            else:
+                plt.close()
 
             highest_peak_bin = np.argmax(hist)
             start_bin = bins[highest_peak_bin]
