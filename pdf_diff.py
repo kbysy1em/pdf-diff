@@ -25,7 +25,7 @@ def elapsed_time(f):
     def wrapper(*args, **kwargs):
         start = time.time()
         v = f(*args, **kwargs)
-        print(f"{f.__name__}: {time.time() - start}")
+        print(f'{f.__name__}の所要時間: {(time.time() - start):.2f} s')
         return v
     return wrapper
 
@@ -44,7 +44,6 @@ def work(settings, img1, img2, similarity, start, stop=None):
     cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=cshm.buf)
 
     ite_xs = range(start, stop)
-
     for ite_x in ite_xs:
         x = int(ite_x * settings['intr_area_x'] * settings['step_x'])
 
@@ -307,6 +306,7 @@ def main(settings):
     # np.savetxt('output.csv', similarity, delimiter=',')
 
     print('\n============= STEP 05 =============')
+    print('変更箇所を着色しています')
     color_img = cv2.merge((img2, img2, img2))
     start_x = int(settings['intr_area_x'] * settings['step_x'])
     end_x = int(img2.shape[0] - 2 * settings['intr_area_x'] * settings['step_x'])
@@ -341,9 +341,6 @@ def main(settings):
             ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
             ax2.imshow(color_img)
 
-            plt.savefig('yoko.pdf', dpi=600, bbox_inches='tight')
-            fig.canvas.mpl_connect('button_press_event', onclick2)
-            plt.show()
         else:
             fig = plt.figure(figsize=(8.27, 11.69))
             
@@ -357,9 +354,9 @@ def main(settings):
             ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
             ax2.imshow(color_img)
 
-            plt.savefig('tate.pdf', dpi=600, bbox_inches='tight')
-            fig.canvas.mpl_connect('button_press_event', onclick2)
-            plt.show()
+        plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
+        fig.canvas.mpl_connect('button_press_event', onclick2)
+        plt.show()
 
         if len(posi) < 2:
             break
@@ -371,11 +368,7 @@ def main(settings):
         x1, y1 = posi.pop()
 
         print(x1, x2, y1, y2)
-        part_img = color_img[x1:x2, y1:y2]
-
-        red_pixels = (part_img == (255, 99, 71)).all(axis=2)
-        part_img[red_pixels] = (255, 255, 255)
-        color_img[x1:x2, y1:y2] = part_img
+        color_img[x1:x2, y1:y2] = cv2.merge((img2[x1:x2, y1:y2], img2[x1:x2, y1:y2], img2[x1:x2, y1:y2]))
 
 if __name__ == '__main__':
     print('============= STEP 00 =============')
