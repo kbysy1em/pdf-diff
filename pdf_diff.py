@@ -71,14 +71,6 @@ def work(settings, img1, img2, color_img, start, stop=None):
             WHITE = (255, 255, 255)
             COLORED = (255, 99, 71)
 
-            # part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
-            # white_pixels = (part_img == WHITE).all(axis=2)
-            # redvalue = int((max_val - 0.9) * 2550)
-            # redvalue = redvalue if redvalue > 0 else 0
-            # part_img[white_pixels] = (redvalue, 0, 0) 
-            # cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] = part_img
-
-
             if max_val < settings['criterion']:
                 part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
                 white_pixels = (part_img == WHITE).all(axis=2)
@@ -304,21 +296,38 @@ def main(settings):
         print('一部の着色箇所を白に戻すには、戻したい箇所(長方形2点)を選択した上で、画像を閉じ\n'
             + '次に現れるダイアログで n を入力してください')
 
-        fig = plt.figure(figsize=(11.69, 8.27))
-        
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax1.axis('off')
-        ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
-        ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
-        
-        ax2 = plt.subplot(1, 2, 2)
-        ax2.axis('off')
-        ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
-        ax2.imshow(color_img)
+        if img2.shape[0] > img2.shape[1]:
+            fig = plt.figure(figsize=(11.69, 8.27))
+            
+            ax1 = fig.add_subplot(1, 2, 1)
+            ax1.axis('off')
+            ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
+            ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
+            
+            ax2 = plt.subplot(1, 2, 2)
+            ax2.axis('off')
+            ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
+            ax2.imshow(color_img)
 
-        plt.savefig('aaa.pdf', dpi=600, bbox_inches='tight')
-        fig.canvas.mpl_connect('button_press_event', onclick2)
-        plt.show()
+            plt.savefig('yoko.pdf', dpi=600, bbox_inches='tight')
+            fig.canvas.mpl_connect('button_press_event', onclick2)
+            plt.show()
+        else:
+            fig = plt.figure(figsize=(8.27, 11.69))
+            
+            ax1 = fig.add_subplot(2, 1, 1)
+            ax1.axis('off')
+            ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
+            ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
+            
+            ax2 = plt.subplot(2, 1, 2)
+            ax2.axis('off')
+            ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
+            ax2.imshow(color_img)
+
+            plt.savefig('tate.pdf', dpi=600, bbox_inches='tight')
+            fig.canvas.mpl_connect('button_press_event', onclick2)
+            plt.show()
 
         if len(posi) < 2:
             break
