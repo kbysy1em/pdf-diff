@@ -267,30 +267,33 @@ def main(settings):
     global posi
 
     print('\n============= STEP 01 =============')
-
+    print('比較元ファイルの読み込みを行います')
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
-    img1_original = img1.copy()
+#    img1_margined = img1.copy()
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     x_mean1, y_mean1 = get_origin(img1)
 
     print('\n============= STEP 02 =============')
+    print('比較先ファイルの読み込みを行います')
     # images will be a list of PIL Image representing each page of the PDF document.
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
+#    img2_margined = img2.copy()
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
     x_mean2, y_mean2 = get_origin(img2)
 
     print('\n============= STEP 03 =============')
+    print('比較元ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
     print(f'必要な片側余白量(y方向): {settings["border_y"]}')
-    img1 = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
+    img1_margined = cv2.copyMakeBorder(img1, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
-    print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1.shape}')
+    print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1_margined.shape}')
 
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
     delta_x = x_mean2 - x_mean1
@@ -300,16 +303,44 @@ def main(settings):
     print(f'y方向移動量: {delta_y} (右が正方向)')
 
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
-    img1 = cv2.warpAffine(img1, M, (img1.shape[1], img1.shape[0]), borderValue=255)
+    img1_margined = cv2.warpAffine(img1_margined, M, (img1_margined.shape[1], img1_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
     print('\n============= STEP 04 =============')
+    print('比較先ファイルの類似度を計算します')
 
-    similarity = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img1, img2, similarity)
+    similarity1 = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img1_margined, img2, similarity1)
     # np.savetxt('output.csv', similarity, delimiter=',')
 
     print('\n============= STEP 05 =============')
+    print('比較先ファイルの位置合わせを行います')
+
+    print(f'必要な片側余白量(x方向): {settings["border_x"]}')
+    print(f'必要な片側余白量(y方向): {settings["border_y"]}')
+    img2_margined = cv2.copyMakeBorder(img2, settings['border_x'], settings['border_x'], 
+        settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
+    print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1_margined.shape}')
+
+    # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
+    delta_x = x_mean1 - x_mean2
+    delta_y = y_mean1 - y_mean2
+    print('比較元画像の位置を調整します')
+    print(f'x方向移動量: {delta_x} (下が正方向)')
+    print(f'y方向移動量: {delta_y} (右が正方向)')
+
+    M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
+    img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
+    print(f'比較元画像の位置調整を行いました')
+
+    print('\n============= STEP 06 =============')
+    print('比較元ファイルの類似度を計算します')
+
+    similarity2 = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img2_margined, img1, similarity2)
+    # np.savetxt('output.csv', similarity, delimiter=',')
+
+    print('\n============= STEP 07 =============')
     print('変更箇所を着色しています')
     color_img = cv2.merge((img2, img2, img2))
     start_x = int(settings['intr_area_x'] * settings['step_x'])
@@ -318,11 +349,15 @@ def main(settings):
     end_y = int(img2.shape[1] - 2 * settings['intr_area_y'] * settings['step_y'])
 
     color_img_sub = color_img[start_x:end_x, start_y:end_y]
+    img1_sub = img1[start_x:end_x, start_y:end_y]
     img2_sub = img2[start_x:end_x, start_y:end_y]
-    similarity_sub = similarity[start_x:end_x, start_y:end_y]
+    similarity1_sub = similarity1[start_x:end_x, start_y:end_y]
+    similarity2_sub = similarity2[start_x:end_x, start_y:end_y]
     
-    color_img_sub[(img2_sub < 128) & (similarity_sub < settings['criterion'])] = (255, 0, 0)
-    color_img_sub[(img2_sub >= 128) & (similarity_sub < settings['criterion'])] = (255, 192, 203)
+    color_img_sub[(img2_sub < 128) & (similarity1_sub < settings['criterion'])] = (255, 0, 0)
+    color_img_sub[(img2_sub >= 128) & (similarity1_sub < settings['criterion'])] = (255, 192, 203)
+    color_img_sub[(similarity1_sub >= settings['criterion']) & (img1_sub < 128) & (similarity2_sub < settings['criterion'])] = (0, 255, 0)
+    color_img_sub[(similarity1_sub >= settings['criterion']) & (img1_sub >= 128) & (similarity2_sub < settings['criterion'])] = (152, 251, 152)
 
     color_img[start_x:end_x, start_y:end_y] = color_img_sub
     retry = True
@@ -338,7 +373,7 @@ def main(settings):
             ax1 = fig.add_subplot(1, 2, 1)
             ax1.axis('off')
             ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
-            ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
+            ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
             
             ax2 = plt.subplot(1, 2, 2)
             ax2.axis('off')
@@ -351,7 +386,7 @@ def main(settings):
             ax1 = fig.add_subplot(2, 1, 1)
             ax1.axis('off')
             ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
-            ax1.imshow(img1_original, vmin=0, vmax=255, cmap='gray')
+            ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
             
             ax2 = plt.subplot(2, 1, 2)
             ax2.axis('off')
