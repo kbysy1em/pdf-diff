@@ -256,7 +256,7 @@ def get_origin(img):
 
     if posi:
         intersection = posi.pop()
-        print(f'{intersection=}')
+        print(f'原点位置を変更します: {intersection}')
 
     return intersection
 
@@ -271,7 +271,12 @@ def main(settings):
     # images will be a list of PIL Image representing each page of the PDF document.
     images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
     img1 = np.array(images1[0], dtype=np.uint8)
-#    img1_margined = img1.copy()
+
+    if settings['rotate1'] == 'cw':
+        img1 = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
+    if settings['rotate1'] == 'ccw':
+        img1 = cv2.rotate(img1, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
     print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     x_mean1, y_mean1 = get_origin(img1)
@@ -281,7 +286,12 @@ def main(settings):
     # images will be a list of PIL Image representing each page of the PDF document.
     images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
     img2 = np.array(images2[0], dtype=np.uint8)
-#    img2_margined = img2.copy()
+
+    if settings['rotate2'] == 'cw':
+        img2 = cv2.rotate(img2, cv2.ROTATE_90_CLOCKWISE)
+    if settings['rotate1'] == 'ccw':
+        img2 = cv2.rotate(img2, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
     print(f'比較先ファイル {settings["filename2"]} を読み込みました。画像サイズ: {img2.shape}')
 
     x_mean2, y_mean2 = get_origin(img2)

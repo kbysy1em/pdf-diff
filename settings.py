@@ -1,4 +1,5 @@
 settings = {
+    # comparison settings
     'intr_area_x': 100,
     'intr_area_y': 100,
     'step_x': 0.5,
@@ -7,6 +8,10 @@ settings = {
     'scan_area_ratio_y': 0.5,
     'criterion': 3.9,
 
+    # input file info
+    'rotate1': '',  # 'cw, ccw or empty
+    'rotate2': '',
+
     # color
     'cv_green': (0, 128, 0),
     'cv_pink': (203, 192, 255),
@@ -14,6 +19,7 @@ settings = {
     'cv_blue' : (255, 0, 0),
 
     # others
+    'inverse_comparison' : 'right',  # 'left, right or empty'
     'debug': False
 }
 
