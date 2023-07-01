@@ -11,6 +11,7 @@ from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process
 from multiprocessing import shared_memory
+from presenter import ImagePresenter
 from settings import *
 from sklearn.decomposition import PCA
 
@@ -169,6 +170,7 @@ def get_origin(img):
     pca.fit(h_points)
     if settings['debug']:
         print(f'{pca.components_=}')
+
 
     if pca.components_[0][1] < 0.1:
         values = [p[1] for p in h_points]
@@ -352,72 +354,8 @@ def main(settings):
 
     print('\n============= STEP 07 =============')
     print('変更箇所を着色しています')
-    color_img = cv2.merge((img2, img2, img2))
-    start_x = int(settings['intr_area_x'] * settings['step_x'])
-    end_x = int(img2.shape[0] - 2 * settings['intr_area_x'] * settings['step_x'])
-    start_y = int(settings['intr_area_y'] * settings['step_y'])
-    end_y = int(img2.shape[1] - 2 * settings['intr_area_y'] * settings['step_y'])
-
-    color_img_sub = color_img[start_x:end_x, start_y:end_y]
-    img1_sub = img1[start_x:end_x, start_y:end_y]
-    img2_sub = img2[start_x:end_x, start_y:end_y]
-    similarity1_sub = similarity1[start_x:end_x, start_y:end_y]
-    similarity2_sub = similarity2[start_x:end_x, start_y:end_y]
-    
-    color_img_sub[(img2_sub < 128) & (similarity1_sub < settings['criterion'])] = (255, 0, 0)
-    color_img_sub[(img2_sub >= 128) & (similarity1_sub < settings['criterion'])] = (255, 192, 203)
-    color_img_sub[(similarity1_sub >= settings['criterion']) & (img1_sub < 128) & (similarity2_sub < settings['criterion'])] = (0, 255, 0)
-    color_img_sub[(similarity1_sub >= settings['criterion']) & (img1_sub >= 128) & (similarity2_sub < settings['criterion'])] = (152, 251, 152)
-
-    color_img[start_x:end_x, start_y:end_y] = color_img_sub
-    retry = True
-    while retry:
-        posi = []
-
-        print('一部の着色箇所を白に戻すには、戻したい箇所(長方形2点)を選択した上で、画像を閉じ\n'
-            + '次に現れるダイアログで n を入力してください')
-
-        if img2.shape[0] > img2.shape[1]:
-            fig = plt.figure(figsize=(11.69, 8.27))
-            
-            ax1 = fig.add_subplot(1, 2, 1)
-            ax1.axis('off')
-            ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
-            ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
-            
-            ax2 = plt.subplot(1, 2, 2)
-            ax2.axis('off')
-            ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
-            ax2.imshow(color_img)
-
-        else:
-            fig = plt.figure(figsize=(8.27, 11.69))
-            
-            ax1 = fig.add_subplot(2, 1, 1)
-            ax1.axis('off')
-            ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
-            ax1.imshow(img1, vmin=0, vmax=255, cmap='gray')
-            
-            ax2 = plt.subplot(2, 1, 2)
-            ax2.axis('off')
-            ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
-            ax2.imshow(color_img)
-
-        plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
-        fig.canvas.mpl_connect('button_press_event', onclick2)
-        plt.show()
-
-        if len(posi) < 2:
-            break
-
-        if input('終了してよろしいですか?(y/n)') != 'n':
-            break
-
-        x2, y2 = posi.pop()
-        x1, y1 = posi.pop()
-
-        print(x1, x2, y1, y2)
-        color_img[x1:x2, y1:y2] = cv2.merge((img2[x1:x2, y1:y2], img2[x1:x2, y1:y2], img2[x1:x2, y1:y2]))
+    ip = ImagePresenter(settings)
+    ip.show(img1, img2, similarity1, similarity2)
 
 if __name__ == '__main__':
     print('============= STEP 00 =============')
