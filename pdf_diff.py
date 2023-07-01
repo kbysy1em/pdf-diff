@@ -11,7 +11,7 @@ from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process
 from multiprocessing import shared_memory
-from presenter import ImagePresenter
+from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight
 from settings import *
 from sklearn.decomposition import PCA
 
@@ -341,8 +341,8 @@ def main(settings):
     print('\n============= STEP 04 =============')
     print('比較先ファイルの類似度を計算します')
 
-    similarity1 = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img1_margined, img2, similarity1)
+    similarity2 = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img1_margined, img2, similarity2)
     # np.savetxt('output.csv', similarity, delimiter=',')
 
     print('\n============= STEP 05 =============')
@@ -368,14 +368,20 @@ def main(settings):
     print('\n============= STEP 06 =============')
     print('比較元ファイルの類似度を計算します')
 
-    similarity2 = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img2_margined, img1, similarity2)
+    similarity1 = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img2_margined, img1, similarity1)
     # np.savetxt('output.csv', similarity, delimiter=',')
 
     print('\n============= STEP 07 =============')
     print('変更箇所を着色しています')
-    ip = ImagePresenter(settings)
-    ip.show(img1, img2, similarity1, similarity2)
+    if settings['inverse_comparison'] == 'left':
+        ip = ImagePresenterInverseLeft(settings, img1, img2, similarity1, similarity2)
+    elif settings['inverse_comparison'] == 'right':
+        ip = ImagePresenterInverseRight(settings, img1, img2, similarity1, similarity2)
+    else:
+        raise NotImplementedError
+    
+    ip.show()
 
 if __name__ == '__main__':
     print('============= STEP 00 =============')
