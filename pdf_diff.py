@@ -150,95 +150,115 @@ def get_origin(img):
             # 横線の場合 → y1,y2がほぼ等しい
             h_lines.append(line)
 
-    #場所によるフィルタリング
-    h_lines1 = []
-    for line in h_lines:
-        x1, y1, x2, y2 = line[0]
-        if (y1 > MIN_Y and y1 < MAX_Y) and (y2 > MIN_Y and y2 < MAX_Y):
-            h_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_red'], 2)
+
+    try:
+        #場所によるフィルタリング
+        h_lines1 = []
+        for line in h_lines:
+            x1, y1, x2, y2 = line[0]
+            if (y1 > MIN_Y and y1 < MAX_Y) and (y2 > MIN_Y and y2 < MAX_Y):
+                h_lines1.append(line)
+                cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_red'], 2)
+        
+        print(f'横線(y方向)検出数: {len(h_lines1)}')
+
+        if not len(h_lines1):
+            raise IndexError
+        
+        h_points = []
+        for line in h_lines1:
+            x1, y1, x2, y2 = line[0]
+            h_points.append([x1, y1])
+            h_points.append([x2, y2])
+
+        pca = PCA(n_components=1)
+        pca.fit(h_points)
+        if settings['debug']:
+            print(f'{pca.components_=}')
+
+        if pca.components_[0][1] < 0.1:
+            values = [p[1] for p in h_points]
+            if settings['debug']:
+                print(f'{values=}')
+
+            if (max(values) - min(values)) > RANGE_LIMIT:
+                hist, bins, _ = plt.hist(values)
+                if settings['debug']:
+                    plt.show()
+                else:
+                    plt.close()
+
+                highest_peak_bin = np.argmax(hist)
+                start_bin = bins[highest_peak_bin]
+                end_bin = bins[highest_peak_bin+1]
+                peak_elements = [v for v in values if start_bin <= v < end_bin]
+                print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+
+                y_mean1 = sum(peak_elements) / len(peak_elements)
+            else:
+                y_mean1 = sum(values) / len(values)
+        else:
+            raise NotImplementedError()
+
+    except IndexError:
+        y_mean1 = 0
     
-    print(f'横線(y方向)検出数: {len(h_lines1)}')
+    except NotImplementedError:
+        y_mean1 = 0
 
-    h_points = []
-    for line in h_lines1:
-        x1, y1, x2, y2 = line[0]
-        h_points.append([x1, y1])
-        h_points.append([x2, y2])
+    try:
+        v_lines1 = []
+        for line in v_lines:
+            x1, y1, x2, y2 = line[0]
+            if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
+                v_lines1.append(line)
+                cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_blue'], 2)
 
-    pca = PCA(n_components=1)
-    pca.fit(h_points)
-    if settings['debug']:
-        print(f'{pca.components_=}')
+        print(f'縦線(x方向)検出数: {len(v_lines1)}')
 
+        if not len(v_lines1):
+            raise IndexError
+        
+        v_points = []
+        for line in v_lines1:
+            x1, y1, x2, y2 = line[0]
+            v_points.append([x1, y1])
+            v_points.append([x2, y2])
 
-    if pca.components_[0][1] < 0.1:
-        values = [p[1] for p in h_points]
+        pca = PCA(n_components=1)
+        pca.fit(v_points)
         if settings['debug']:
-            print(f'{values=}')
+            print(f'{pca.components_=}')
 
-        if (max(values) - min(values)) > RANGE_LIMIT:
-            hist, bins, _ = plt.hist(values)
+        if pca.components_[0][0] < 0.1:
+            values = [p[0] for p in v_points]
             if settings['debug']:
-                plt.show()
+                print(f'{values=}')
+
+            if (max(values) - min(values)) > RANGE_LIMIT:
+                hist, bins, _ = plt.hist(values)
+                if settings['debug']:
+                    plt.show()
+                else:
+                    plt.close()
+
+                highest_peak_bin = np.argmax(hist)
+                start_bin = bins[highest_peak_bin]
+                end_bin = bins[highest_peak_bin+1]
+                peak_elements = [v for v in values if start_bin <= v < end_bin]
+                print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
+
+                x_mean1 = sum(peak_elements) / len(peak_elements)
             else:
-                plt.close()
-
-            highest_peak_bin = np.argmax(hist)
-            start_bin = bins[highest_peak_bin]
-            end_bin = bins[highest_peak_bin+1]
-            peak_elements = [v for v in values if start_bin <= v < end_bin]
-            print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
-
-            y_mean1 = sum(peak_elements) / len(peak_elements)
+                x_mean1 = sum(values) / len(values)
         else:
-            y_mean1 = sum(values) / len(values)
-    else:
-        raise NotImplementedError()
-
-    v_lines1 = []
-    for line in v_lines:
-        x1, y1, x2, y2 = line[0]
-        if (x1 > MIN_X and x1 < MAX_X) and (x2 > MIN_X and x2 < MAX_X):
-            v_lines1.append(line)
-            cv2.line(img_disp, (x1, y1), (x2, y2), settings['cv_blue'], 2)
-
-    print(f'縦線(x方向)検出数: {len(v_lines1)}')
-
-    v_points = []
-    for line in v_lines1:
-        x1, y1, x2, y2 = line[0]
-        v_points.append([x1, y1])
-        v_points.append([x2, y2])
-
-    pca = PCA(n_components=1)
-    pca.fit(v_points)
-    if settings['debug']:
-        print(f'{pca.components_=}')
-
-    if pca.components_[0][0] < 0.1:
-        values = [p[0] for p in v_points]
-        if settings['debug']:
-            print(f'{values=}')
-
-        if (max(values) - min(values)) > RANGE_LIMIT:
-            hist, bins, _ = plt.hist(values)
-            if settings['debug']:
-                plt.show()
-            else:
-                plt.close()
-
-            highest_peak_bin = np.argmax(hist)
-            start_bin = bins[highest_peak_bin]
-            end_bin = bins[highest_peak_bin+1]
-            peak_elements = [v for v in values if start_bin <= v < end_bin]
-            print(f'{start_bin=}, {end_bin=}, {peak_elements=}')
-
-            x_mean1 = sum(peak_elements) / len(peak_elements)
-        else:
-            x_mean1 = sum(values) / len(values)
-    else:
-        raise NotImplementedError()
+            raise NotImplementedError()
+        
+    except IndexError:
+        x_mean1 = 0
+    
+    except NotImplementedError:
+        x_mean1 = 0
 
     # 交点を整数値に変換
     intersection = (int(x_mean1), int(y_mean1))
