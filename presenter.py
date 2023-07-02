@@ -27,10 +27,10 @@ class ImagePresenter:
         self.color_img1 = cv2.merge((img1, img1, img1))
         self.color_img2 = cv2.merge((img2, img2, img2))
 
-        self.start_x = int(self.settings['intr_area_x'] * self.settings['step_x'])
-        self.end_x = int(self.img2.shape[0] - 2 * self.settings['intr_area_x'] * self.settings['step_x'])
-        self.start_y = int(self.settings['intr_area_y'] * self.settings['step_y'])
-        self.end_y = int(self.img2.shape[1] - 2 * self.settings['intr_area_y'] * self.settings['step_y'])
+        self.start_x = int(self.settings['intr_area_x'])
+        self.end_x = int(self.img2.shape[0] - 2 * self.settings['intr_area_x'])
+        self.start_y = int(self.settings['intr_area_y'])
+        self.end_y = int(self.img2.shape[1] - 2 * self.settings['intr_area_y'])
 
         self.color_img1_sub = self.color_img1[self.start_x:self.end_x, self.start_y:self.end_y]
         self.color_img2_sub = self.color_img2[self.start_x:self.end_x, self.start_y:self.end_y]

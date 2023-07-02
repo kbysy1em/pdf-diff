@@ -2,11 +2,11 @@ settings = {
     # comparison settings
     'intr_area_x': 100,
     'intr_area_y': 100,
-    'step_x': 0.5,
-    'step_y': 0.5,
+    'step_x': 0.25,  # 0.5
+    'step_y': 0.25,  # 0.5
     'scan_area_ratio_x': 0.5,
     'scan_area_ratio_y': 0.5,
-    'criterion': 3.9,
+    'criterion': 15.8,
 
     # input file info
     'rotate1': '',  # 'cw, ccw or empty
@@ -23,6 +23,7 @@ settings = {
 
     # others
     'inverse_comparison' : 'left',  # 'left, right or empty'
+    'check_similarity' : True,
     'debug': False
 }
 

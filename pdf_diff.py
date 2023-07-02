@@ -339,11 +339,14 @@ def main(settings):
     print(f'比較元画像の位置調整を行いました')
 
     print('\n============= STEP 04 =============')
-    print('比較先ファイルの類似度を計算します')
+    print('正方向の類似度を計算します(比較元⇒比較先)')
 
     similarity2 = np.zeros_like(img2, dtype=np.float64)
     get_similarity(settings, img1_margined, img2, similarity2)
-    # np.savetxt('output.csv', similarity, delimiter=',')
+    if settings['check_similarity']:
+        print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
+        np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
+        print('完了')
 
     print('\n============= STEP 05 =============')
     print('比較先ファイルの位置合わせを行います')
@@ -366,7 +369,7 @@ def main(settings):
     print(f'比較元画像の位置調整を行いました')
 
     print('\n============= STEP 06 =============')
-    print('比較元ファイルの類似度を計算します')
+    print('逆方向の類似度を計算します(比較先⇒比較元)')
 
     similarity1 = np.zeros_like(img2, dtype=np.float64)
     get_similarity(settings, img2_margined, img1, similarity1)
@@ -402,12 +405,3 @@ if __name__ == '__main__':
         print('Error: ')
         pprint.pprint(sys.exc_info())
         pprint.pprint(traceback.format_tb(sys.exc_info()[2]))
-        # pprint.pprint('Error: ', sys.exc_info()[0])
-        # pprint.pprint(sys.exc_info()[1])
-        # pprint.pprint(traceback.format_tb(sys.exc_info()[2]))
-
-
-#最小二乗法で直線の方程式を求める
-# https://dev.classmethod.jp/articles/pythonscikit-learn-pca1/
-# https://qiita.com/supersaiakujin/items/138c0d8e6511735f1f45
-#交点を求める
