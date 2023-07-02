@@ -39,7 +39,7 @@ def onclick2(event):
 
 def work(settings, img1, img2, similarity, start, stop=None):
     if stop is None:
-        stop = int((img2.shape[0] - settings['intr_area_x']) / (settings['intr_area_x'] * settings['step_x']) + 1)
+        stop = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x']))
 
     cshm = shared_memory.SharedMemory(name='similarity_shm')
     cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=cshm.buf)
@@ -65,14 +65,6 @@ def work(settings, img1, img2, similarity, start, stop=None):
 
             _, max_val, _, _ = cv2.minMaxLoc(res)
 
-            # 一致度が低い場所は色を付ける
-            # WHITE = (255, 255, 255)
-            # COLORED = (255, 99, 71)
-
-            # if max_val < settings['criterion']:
-            #part_img = cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']]
-            #     white_pixels = (part_img == WHITE).all(axis=2)
-            #     part_img[white_pixels] = COLORED
             cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] += max_val
     cshm.close()
 
@@ -81,15 +73,16 @@ def get_similarity(settings, img1, img2, similarity):
     settings['ite_ys'] = range(int((img2.shape[1] - settings['intr_area_y'])
         / (settings['intr_area_y'] * settings['step_y']) + 1))
 
-    # print(color_img.dtype)
     shm = shared_memory.SharedMemory(name='similarity_shm', create=True, size=similarity.nbytes)
 
     similarity2 = np.ndarray(similarity.shape, dtype=np.float64, buffer=shm.buf)
     similarity2[:, :] = similarity[:, :]
 
-    p1 = Process(target=work, args=(settings, img1, img2, similarity, 0, 50))
-    p2 = Process(target=work, args=(settings, img1, img2, similarity, 50, 100))
-    p3 = Process(target=work, args=(settings, img1, img2, similarity, 100))
+    max_ite_x = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x'])) - 1
+
+    p1 = Process(target=work, args=(settings, img1, img2, similarity, 0, int(max_ite_x / 3)))
+    p2 = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / 3), int(max_ite_x / 3 * 2)))
+    p3 = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / 3 * 2), max_ite_x))
 
     p1.start()
     p2.start()

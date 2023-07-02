@@ -6,7 +6,9 @@ settings = {
     'step_y': 0.25,  # 0.5
     'scan_area_ratio_x': 0.5,
     'scan_area_ratio_y': 0.5,
-    'criterion': 15.8,
+    'criterion': 15.8,  # (intr / step)^2
+    'ite_xs' : None,
+    'ite_ys' : None,
 
     # input file info
     'rotate1': '',  # 'cw, ccw or empty
@@ -26,6 +28,7 @@ settings = {
     'check_similarity' : True,
     'debug': False
 }
+
 
 settings['border_x'] = int(settings['intr_area_x'] * settings['scan_area_ratio_x'])
 settings['border_y'] = int(settings['intr_area_y'] * settings['scan_area_ratio_y'])
