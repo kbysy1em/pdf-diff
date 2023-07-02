@@ -100,9 +100,14 @@ class ImagePresenterInverseLeft(ImagePresenter):
             x2, y2 = clicked_positions.pop()
             x1, y1 = clicked_positions.pop()
 
-            print(x1, x2, y1, y2)
-            print(axs[clicked_ax])
-            self.color_img2[x1:x2, y1:y2] = cv2.merge((self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2]))
+            print(f'色を戻す範囲: x方向 {x1} ~ {x2}, y方向 {y1} ~ {y2}')
+
+            if axs[clicked_ax] == 'ax1':
+                self.color_img1[x1:x2, y1:y2] = cv2.merge((self.img1[x1:x2, y1:y2], self.img1[x1:x2, y1:y2], self.img1[x1:x2, y1:y2]))
+            elif axs[clicked_ax] == 'ax2':
+                self.color_img2[x1:x2, y1:y2] = cv2.merge((self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2]))
+            else:
+                raise NotImplementedError()
 
 class ImagePresenterInverseRight(ImagePresenter):
     def show(self):
@@ -160,5 +165,5 @@ class ImagePresenterInverseRight(ImagePresenter):
             x2, y2 = clicked_positions.pop()
             x1, y1 = clicked_positions.pop()
 
-            print(x1, x2, y1, y2)
+            print(f'色を戻す範囲: x方向 {x1} ~ {x2}, y方向 {y1} ~ {y2}')
             self.color_img2[x1:x2, y1:y2] = cv2.merge((self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2]))
