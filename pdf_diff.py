@@ -80,17 +80,15 @@ def get_similarity(settings, img1, img2, similarity):
 
     max_ite_x = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x'])) - 1
 
-    p1 = Process(target=work, args=(settings, img1, img2, similarity, 0, int(max_ite_x / 3)))
-    p2 = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / 3), int(max_ite_x / 3 * 2)))
-    p3 = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / 3 * 2), max_ite_x))
+    num_process = 3
+    processes = []
+    for i in range(num_process):
+        p = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / num_process * i), int(max_ite_x / num_process * (i + 1))))
+        p.start()
+        processes.append(p)
 
-    p1.start()
-    p2.start()
-    p3.start()
-    
-    p1.join()
-    p2.join()
-    p3.join()
+    for p in processes:
+        p.join()
 
     similarity[:, :] = similarity2[:, :]
     shm.close()
@@ -332,16 +330,6 @@ def main(settings):
     print(f'比較元画像の位置調整を行いました')
 
     print('\n============= STEP 04 =============')
-    print('正方向の類似度を計算します(比較元⇒比較先)')
-
-    similarity2 = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img1_margined, img2, similarity2)
-    if settings['check_similarity']:
-        print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
-        np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
-        print('完了')
-
-    print('\n============= STEP 05 =============')
     print('比較先ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -360,6 +348,17 @@ def main(settings):
     M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
     img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
+
+    print('\n============= STEP 05 =============')
+    print('正方向の類似度を計算します(比較元⇒比較先)')
+
+    similarity2 = np.zeros_like(img2, dtype=np.float64)
+    get_similarity(settings, img1_margined, img2, similarity2)
+
+    if settings['check_similarity']:
+        print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
+        np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
+        print('完了')
 
     print('\n============= STEP 06 =============')
     print('逆方向の類似度を計算します(比較先⇒比較元)')
