@@ -6,10 +6,11 @@ import sys
 import time
 import traceback
 import matplotlib as mpl
+import multiprocessing as mp
 from concurrent.futures import (ProcessPoolExecutor, Future)
 from functools import wraps
 from matplotlib import pyplot as plt
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from multiprocessing import shared_memory
 from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight
 from settings import *
@@ -37,12 +38,12 @@ def onclick2(event):
     posi.append([int(event.ydata), int(event.xdata)])
     print(f'Clicked point: {posi[-1]}')
 
-def work(settings, img1, img2, similarity, start, stop=None):
+def work(settings, img1, img2, similarity, shmname, start, stop=None):
     if stop is None:
         stop = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x']))
 
-    cshm = shared_memory.SharedMemory(name='similarity_shm')
-    cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=cshm.buf)
+    existing_shm = shared_memory.SharedMemory(name=shmname)
+    cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=existing_shm.buf)
 
     ite_xs = range(start, stop)
     for ite_x in ite_xs:
@@ -66,15 +67,17 @@ def work(settings, img1, img2, similarity, start, stop=None):
             _, max_val, _, _ = cv2.minMaxLoc(res)
 
             cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] += max_val
-    cshm.close()
+    existing_shm.close()
 
 @elapsed_time
-def get_similarity(settings, img1, img2, similarity):
+def get_similarity(queue, settings, img1, img2, similarity, shmname):
     settings['ite_ys'] = range(int((img2.shape[1] - settings['intr_area_y'])
         / (settings['intr_area_y'] * settings['step_y']) + 1))
 
-    shm = shared_memory.SharedMemory(name='similarity_shm', create=True, size=similarity.nbytes)
+    # 共有メモリの作成
+    shm = shared_memory.SharedMemory(name=shmname, create=True, size=similarity.nbytes)
 
+    # 共有メモリによって使用させるndarray
     similarity2 = np.ndarray(similarity.shape, dtype=np.float64, buffer=shm.buf)
     similarity2[:, :] = similarity[:, :]
 
@@ -83,17 +86,26 @@ def get_similarity(settings, img1, img2, similarity):
     num_process = 3
     processes = []
     for i in range(num_process):
-        p = Process(target=work, args=(settings, img1, img2, similarity, int(max_ite_x / num_process * i), int(max_ite_x / num_process * (i + 1))))
+        p = Process(target=work, args=(settings, img1, img2, similarity, shmname, 
+                                       int(max_ite_x / num_process * i), int(max_ite_x / num_process * (i + 1))))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
 
+
+
     similarity[:, :] = similarity2[:, :]
+
+    queue.put(similarity)
     shm.close()
     shm.unlink()
 
+    # if settings['check_similarity']:
+    #     print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
+    #     np.savetxt(shmname+'.csv', similarity2, delimiter=',', fmt='%3.3f')
+    #     print('完了')
 
 def get_origin(img):
     '''
@@ -350,24 +362,64 @@ def main(settings):
     print(f'比較元画像の位置調整を行いました')
 
     print('\n============= STEP 05 =============')
-    print('正方向の類似度を計算します(比較元⇒比較先)')
+    print('類似度を計算します')
+
+    result_queue = Queue()
 
     similarity2 = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img1_margined, img2, similarity2)
+    similarity1 = np.zeros_like(img1, dtype=np.float64)
+
+    p1 = Process(target=get_similarity, args=(result_queue, settings, img1_margined, img2, similarity2, 'similarity_shm2'))
+    p1.start()
+    p2 = Process(target=get_similarity, args=(result_queue, settings, img2_margined, img1, similarity1, 'similarity_shm1'))
+    p2.start()
+    similarity2 = result_queue.get()
+    similarity1 = result_queue.get()
+
+    # results = []
+    p1.join()
+    # results.append(p1.exitcode)
+    p2.join()
+    # results.append(p2.exitcode)
+
+    # pool = mp.Pool(processes=2)
+
+    # arguments = [(settings, img1_margined, img2, similarity2, 'similarity_shm2'),
+    #              (settings, img2_margined, img1, similarity1, 'similarity_shm1')]
+
+    # results = pool.starmap(get_similarity, arguments)
+
+    # pool.close()
+    # pool.join()
+
+    print('p1 and p2 joined')
 
     if settings['check_similarity']:
         print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
         np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
         print('完了')
+# 類似度を計算します
+# Process Process-2:
+# Traceback (most recent call last):
+#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 314, in _bootstrap
+#     self.run()
+#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 108, in run
+#     self._target(*self._args, **self._kwargs)
+#   File "D:\work\会社\OneDrive - 株式会社キッツ\ドキュメント\tools\pdf\pdf_diff\pdf_diff.py", line 28, in wrapper
+#     v = f(*args, **kwargs)
+#         ^^^^^^^^^^^^^^^^^^
+#   File "D:\work\会社\OneDrive - 株式会社キッツ\ドキュメント\tools\pdf\pdf_diff\pdf_diff.py", line 76, in get_similarity
+#     shm = shared_memory.SharedMemory(name='similarity_shm', create=True, size=similarity.nbytes)
+#           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\shared_memory.py", line 143, in __init__
+#     raise FileExistsError(
+# FileExistsError: [WinError 183] File exists: 'similarity_shm'
+# get_similarityの所要時間: 10.97 s
+
+
+
 
     print('\n============= STEP 06 =============')
-    print('逆方向の類似度を計算します(比較先⇒比較元)')
-
-    similarity1 = np.zeros_like(img2, dtype=np.float64)
-    get_similarity(settings, img2_margined, img1, similarity1)
-    # np.savetxt('output.csv', similarity, delimiter=',')
-
-    print('\n============= STEP 07 =============')
     print('変更箇所を着色しています')
     if settings['inverse_comparison'] == 'left':
         ip = ImagePresenterInverseLeft(settings, img1, img2, similarity1, similarity2)
