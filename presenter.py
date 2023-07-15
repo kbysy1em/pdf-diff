@@ -191,26 +191,8 @@ class ImagePresenterOverlap(ImagePresenter):
         self.color_img2[:, :, 0] = self.img2  # 黒い部分を赤に変換
         self.color_img2[:, :, 3] = np.where(self.img2 == 0, 255, 0)  # 黒い部分を不透明に
 
-        # 透明な部分を設定
-        # self.color_img1[np.where(img1_offset > 128)] = [0, 0, 0, 0]  # 白い部分を透明に
-        # self.color_img2[np.where(self.img2 > 128)] = [0, 0, 0, 0]  # 白い部分を透明に
-
         # ２枚の画像を重ね合わせる
         result = cv2.add(self.color_img1, self.color_img2)
-
-        #change color
-        # self.color_img1 = cv2.cvtColor(img1_offset, cv2.COLOR_GRAY2BGR)
-        # self.color_img1[np.where(self.img1 < 128)] = [255, 0, 0]  # 黒い部分を青に変換
-        # self.color_img1[np.where(self.img1 > 128)] = [0, 0, 0]  # 白い部分を透明に変換
-
-        # self.color_img2 = cv2.cvtColor(self.img2, cv2.COLOR_GRAY2BGR)
-        # self.color_img2[np.where(self.img2 < 128)] = [255, 0, 0]  # 黒い部分を青に変換
-        # self.color_img2[np.where(self.img2 > 128)] = [0, 0, 0]  # 白い部分を透明に変換
-
-        #kasaneawase
-        # result = cv2.addWeighted(self.color_img1, 1, self.color_img2, 1, 0)
-
-        # result[np.where(result == [0, 0, 0])] = [255, 255, 255]
 
         if self.img2.shape[0] > self.img2.shape[1]:  # portrait
             plt.figure(figsize=(11.69, 8.27))
