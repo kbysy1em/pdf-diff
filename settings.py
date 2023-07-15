@@ -10,6 +10,10 @@ settings = {
     'ite_xs' : None,
     'ite_ys' : None,
 
+    # image attribute
+    'delta_x': None,
+    'delta_y': None,
+
     # input file info
     'rotate1': '',  # 'cw, ccw or empty
     'rotate2': '',
@@ -24,8 +28,9 @@ settings = {
     'blue' : (0, 0, 255),
 
     # others
+    'display': 'overlap',  # comparison, overlap, raw
     'inverse_comparison' : 'left',  # 'left, right or empty'
-    'check_similarity' : True,
+    'check_similarity' : False,
     'debug': False
 }
 

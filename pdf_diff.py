@@ -12,7 +12,7 @@ from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process, Queue
 from multiprocessing import shared_memory
-from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight
+from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight, ImagePresenterOverlap
 from settings import *
 from sklearn.decomposition import PCA
 
@@ -94,18 +94,11 @@ def get_similarity(queue, settings, img1, img2, similarity, shmname):
     for p in processes:
         p.join()
 
-
-
     similarity[:, :] = similarity2[:, :]
 
     queue.put(similarity)
     shm.close()
     shm.unlink()
-
-    # if settings['check_similarity']:
-    #     print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
-    #     np.savetxt(shmname+'.csv', similarity2, delimiter=',', fmt='%3.3f')
-    #     print('完了')
 
 def get_origin(img):
     '''
@@ -271,7 +264,7 @@ def get_origin(img):
     img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['cv_green'], 5)
     img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['cv_green'], 5)
 
-    print('原点の位置が気に入らない場合には原点の位置をクリックしてください')
+    print('原点の位置が適正でない場合には原点の位置をクリックしてください')
 
     posi = []
     fig = plt.figure()
@@ -331,13 +324,13 @@ def main(settings):
     print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1_margined.shape}')
 
     # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
-    delta_x = x_mean2 - x_mean1
-    delta_y = y_mean2 - y_mean1
+    settings['delta_x'] = x_mean2 - x_mean1
+    settings['delta_y'] = y_mean2 - y_mean1
     print('比較元画像の位置を調整します')
-    print(f'x方向移動量: {delta_x} (下が正方向)')
-    print(f'y方向移動量: {delta_y} (右が正方向)')
+    print(f'x方向移動量: {settings["delta_x"]} (下が正方向)')
+    print(f'y方向移動量: {settings["delta_y"]} (右が正方向)')
 
-    M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
+    M = np.float32([[1, 0, settings['delta_x']], [0, 1, settings['delta_y']]])
     img1_margined = cv2.warpAffine(img1_margined, M, (img1_margined.shape[1], img1_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
@@ -348,83 +341,56 @@ def main(settings):
     print(f'必要な片側余白量(y方向): {settings["border_y"]}')
     img2_margined = cv2.copyMakeBorder(img2, settings['border_x'], settings['border_x'], 
         settings['border_y'], settings['border_y'], cv2.BORDER_CONSTANT, value=255)
-    print(f'比較元画像の周囲に余白を追加しました。画像サイズ: {img1_margined.shape}')
+    print(f'比較先画像の周囲に余白を追加しました。画像サイズ: {img2_margined.shape}')
 
-    # 両者の原点位置により、オフセット量を計算し、比較元の画像img1をオフセットさせる
-    delta_x = x_mean1 - x_mean2
-    delta_y = y_mean1 - y_mean2
-    print('比較元画像の位置を調整します')
-    print(f'x方向移動量: {delta_x} (下が正方向)')
-    print(f'y方向移動量: {delta_y} (右が正方向)')
+    # 比較先の画像img2をオフセットさせる
+    print('比較先画像の位置を調整します')
+    print(f'x方向移動量: {-settings["delta_x"]} (下が正方向)')
+    print(f'y方向移動量: {-settings["delta_y"]} (右が正方向)')
 
-    M = np.float32([[1, 0, delta_x], [0, 1, delta_y]])
+    M = np.float32([[1, 0, -settings['delta_x']], [0, 1, -settings['delta_y']]])
     img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
-    print(f'比較元画像の位置調整を行いました')
+    print(f'比較先画像の位置調整を行いました')
 
     print('\n============= STEP 05 =============')
-    print('類似度を計算します')
 
-    result_queue = Queue()
+    if settings['display'] == 'comparison':
+        print('類似度を計算します')
 
-    similarity2 = np.zeros_like(img2, dtype=np.float64)
-    similarity1 = np.zeros_like(img1, dtype=np.float64)
+        result_queue = Queue()
 
-    p1 = Process(target=get_similarity, args=(result_queue, settings, img1_margined, img2, similarity2, 'similarity_shm2'))
-    p1.start()
-    p2 = Process(target=get_similarity, args=(result_queue, settings, img2_margined, img1, similarity1, 'similarity_shm1'))
-    p2.start()
-    similarity2 = result_queue.get()
-    similarity1 = result_queue.get()
+        similarity2 = np.zeros_like(img2, dtype=np.float64)
+        similarity1 = np.zeros_like(img1, dtype=np.float64)
 
-    # results = []
-    p1.join()
-    # results.append(p1.exitcode)
-    p2.join()
-    # results.append(p2.exitcode)
+        p1 = Process(target=get_similarity, args=(result_queue, settings, img1_margined, img2, similarity2, 'similarity_shm2'))
+        p1.start()
+        p2 = Process(target=get_similarity, args=(result_queue, settings, img2_margined, img1, similarity1, 'similarity_shm1'))
+        p2.start()
+        similarity2 = result_queue.get()
+        similarity1 = result_queue.get()
 
-    # pool = mp.Pool(processes=2)
+        p1.join()
+        p2.join()
+        print('p1 and p2 joined')
 
-    # arguments = [(settings, img1_margined, img2, similarity2, 'similarity_shm2'),
-    #              (settings, img2_margined, img1, similarity1, 'similarity_shm1')]
-
-    # results = pool.starmap(get_similarity, arguments)
-
-    # pool.close()
-    # pool.join()
-
-    print('p1 and p2 joined')
-
-    if settings['check_similarity']:
-        print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
-        np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
-        print('完了')
-# 類似度を計算します
-# Process Process-2:
-# Traceback (most recent call last):
-#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 314, in _bootstrap
-#     self.run()
-#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\process.py", line 108, in run
-#     self._target(*self._args, **self._kwargs)
-#   File "D:\work\会社\OneDrive - 株式会社キッツ\ドキュメント\tools\pdf\pdf_diff\pdf_diff.py", line 28, in wrapper
-#     v = f(*args, **kwargs)
-#         ^^^^^^^^^^^^^^^^^^
-#   File "D:\work\会社\OneDrive - 株式会社キッツ\ドキュメント\tools\pdf\pdf_diff\pdf_diff.py", line 76, in get_similarity
-#     shm = shared_memory.SharedMemory(name='similarity_shm', create=True, size=similarity.nbytes)
-#           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "C:\Users\kbysy\AppData\Local\Programs\Python\Python311\Lib\multiprocessing\shared_memory.py", line 143, in __init__
-#     raise FileExistsError(
-# FileExistsError: [WinError 183] File exists: 'similarity_shm'
-# get_similarityの所要時間: 10.97 s
-
-
-
+        if settings['check_similarity']:
+            print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
+            np.savetxt('similarity2.csv', similarity2, delimiter=',', fmt='%3.3f')
+            print('完了')
+    else:
+        print('類似度の計算をスキップします')
 
     print('\n============= STEP 06 =============')
-    print('変更箇所を着色しています')
-    if settings['inverse_comparison'] == 'left':
-        ip = ImagePresenterInverseLeft(settings, img1, img2, similarity1, similarity2)
-    elif settings['inverse_comparison'] == 'right':
-        ip = ImagePresenterInverseRight(settings, img1, img2, similarity1, similarity2)
+    print('結果を表示します')
+    if settings['display'] == 'overlap':
+        ip = ImagePresenterOverlap(settings, img1, img2)
+    elif settings['display'] == 'comparison':
+        if settings['inverse_comparison'] == 'left':
+            ip = ImagePresenterInverseLeft(settings, img1, img2, similarity1, similarity2)
+        elif settings['inverse_comparison'] == 'right':
+            ip = ImagePresenterInverseRight(settings, img1, img2, similarity1, similarity2)
+        else:
+            raise NotImplementedError
     else:
         raise NotImplementedError
     

@@ -1,5 +1,6 @@
 import cv2
 import matplotlib as mpl
+import numpy as np
 from matplotlib import pyplot as plt
 
 clicked_positions = []
@@ -17,7 +18,7 @@ def onclick(event):
 
 
 class ImagePresenter:
-    def __init__(self, settings, img1, img2, similarity1, similarity2):
+    def __init__(self, settings, img1, img2, similarity1=None, similarity2=None):
         self.settings = settings
         self.img1 = img1
         self.img2 = img2
@@ -36,8 +37,11 @@ class ImagePresenter:
         self.color_img2_sub = self.color_img2[self.start_x:self.end_x, self.start_y:self.end_y]
         self.img1_sub = self.img1[self.start_x:self.end_x, self.start_y:self.end_y]
         self.img2_sub = self.img2[self.start_x:self.end_x, self.start_y:self.end_y]
-        self.similarity1_sub = self.similarity1[self.start_x:self.end_x, self.start_y:self.end_y]
-        self.similarity2_sub = self.similarity2[self.start_x:self.end_x, self.start_y:self.end_y]
+
+        if similarity1 is not None:
+            self.similarity1_sub = self.similarity1[self.start_x:self.end_x, self.start_y:self.end_y]
+        if similarity2 is not None:
+            self.similarity2_sub = self.similarity2[self.start_x:self.end_x, self.start_y:self.end_y]
 
 class ImagePresenterInverseLeft(ImagePresenter):
     def show(self):
@@ -167,3 +171,64 @@ class ImagePresenterInverseRight(ImagePresenter):
 
             print(f'色を戻す範囲: x方向 {x1} ~ {x2}, y方向 {y1} ~ {y2}')
             self.color_img2[x1:x2, y1:y2] = cv2.merge((self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2]))
+
+class ImagePresenterOverlap(ImagePresenter):
+    def show(self):
+        print('比較元画像の位置を調整します')
+        print(f'x方向移動量: {self.settings["delta_x"]} (下が正方向)')
+        print(f'y方向移動量: {self.settings["delta_y"]} (右が正方向)')
+
+        M = np.float32([[1, 0, self.settings['delta_x']], [0, 1, self.settings['delta_y']]])
+        img1_offset = cv2.warpAffine(self.img1, M, (self.img1.shape[1], self.img1.shape[0]), borderValue=255)
+
+        height, width = img1_offset.shape
+
+        self.color_img1 = np.zeros((height, width, 4), dtype=np.uint8)
+        self.color_img1[:, :, 2] = img1_offset  # 黒い部分を青に変換
+        self.color_img1[:, :, 3] = np.where(img1_offset == 0, 255, 0)  # 黒い部分を不透明に
+
+        self.color_img2 = np.zeros((height, width, 4), dtype=np.uint8)
+        self.color_img2[:, :, 0] = self.img2  # 黒い部分を赤に変換
+        self.color_img2[:, :, 3] = np.where(self.img2 == 0, 255, 0)  # 黒い部分を不透明に
+
+        # 透明な部分を設定
+        # self.color_img1[np.where(img1_offset > 128)] = [0, 0, 0, 0]  # 白い部分を透明に
+        # self.color_img2[np.where(self.img2 > 128)] = [0, 0, 0, 0]  # 白い部分を透明に
+
+        # ２枚の画像を重ね合わせる
+        result = cv2.add(self.color_img1, self.color_img2)
+
+        #change color
+        # self.color_img1 = cv2.cvtColor(img1_offset, cv2.COLOR_GRAY2BGR)
+        # self.color_img1[np.where(self.img1 < 128)] = [255, 0, 0]  # 黒い部分を青に変換
+        # self.color_img1[np.where(self.img1 > 128)] = [0, 0, 0]  # 白い部分を透明に変換
+
+        # self.color_img2 = cv2.cvtColor(self.img2, cv2.COLOR_GRAY2BGR)
+        # self.color_img2[np.where(self.img2 < 128)] = [255, 0, 0]  # 黒い部分を青に変換
+        # self.color_img2[np.where(self.img2 > 128)] = [0, 0, 0]  # 白い部分を透明に変換
+
+        #kasaneawase
+        # result = cv2.addWeighted(self.color_img1, 1, self.color_img2, 1, 0)
+
+        # result[np.where(result == [0, 0, 0])] = [255, 255, 255]
+
+        if self.img2.shape[0] > self.img2.shape[1]:  # portrait
+            plt.figure(figsize=(11.69, 8.27))
+            #plt.axis('off')
+            plt.imshow(result)
+            
+
+        # else:  # landscape
+        #     fig = plt.figure(figsize=(8.27, 11.69))
+        #     ax1 = fig.add_subplot(2, 1, 1)
+        #     ax1.axis('off')
+        #     ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
+        #     ax1.imshow(self.img1, vmin=0, vmax=255, cmap='gray')
+            
+        #     ax2 = plt.subplot(2, 1, 2)
+        #     ax2.axis('off')
+        #     ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
+        #     ax2.imshow(self.color_img2)
+
+        plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
+        plt.show()
