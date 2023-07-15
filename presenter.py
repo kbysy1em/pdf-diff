@@ -18,10 +18,11 @@ def onclick(event):
 
 
 class ImagePresenter:
-    def __init__(self, settings, img1, img2, similarity1=None, similarity2=None):
+    def __init__(self, settings, page_num, img1, img2, similarity1=None, similarity2=None):
         self.settings = settings
         self.img1 = img1
         self.img2 = img2
+        self.page_num = page_num
         self.similarity1 = similarity1
         self.similarity2 = similarity2
 
@@ -194,23 +195,14 @@ class ImagePresenterOverlap(ImagePresenter):
         # ２枚の画像を重ね合わせる
         result = cv2.add(self.color_img1, self.color_img2)
 
-        if self.img2.shape[0] > self.img2.shape[1]:  # portrait
-            plt.figure(figsize=(11.69, 8.27))
-            #plt.axis('off')
+        if self.img2.shape[0] > self.img2.shape[1]:  # if img2 is portrait
+            plt.figure(figsize=(8.27, 11.69))
+            plt.axis('off')
             plt.imshow(result)
-            
+        else:  # if img2 is landscape
+            plt.figure(figsize=(11.69, 8.27))
+            plt.axis('off')
+            plt.imshow(result)
 
-        # else:  # landscape
-        #     fig = plt.figure(figsize=(8.27, 11.69))
-        #     ax1 = fig.add_subplot(2, 1, 1)
-        #     ax1.axis('off')
-        #     ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
-        #     ax1.imshow(self.img1, vmin=0, vmax=255, cmap='gray')
-            
-        #     ax2 = plt.subplot(2, 1, 2)
-        #     ax2.axis('off')
-        #     ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
-        #     ax2.imshow(self.color_img2)
-
-        plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
+        plt.savefig('result' + str(self.page_num) + '.pdf', dpi=600, bbox_inches='tight')
         plt.show()

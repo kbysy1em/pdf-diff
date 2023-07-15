@@ -278,32 +278,27 @@ def get_origin(img):
 
     return intersection
 
-def main(settings):
+def compare(settings, images1, images2, page_num = 0):
     '''
-    PDFを読み込み比較する
+    各ページごとに比較を行い、結果を保存する
     '''
-    global posi
+    if page_num == settings['total_images1']:
+        return
 
-    print('\n============= STEP 01 =============')
-    print('比較元ファイルの読み込みを行います')
-    # images will be a list of PIL Image representing each page of the PDF document.
-    images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
-    img1 = np.array(images1[0], dtype=np.uint8)
+    print('\n============= STEP 02 - 01 =============')
+    img1 = np.array(images1[page_num], dtype=np.uint8)
 
     if settings['rotate1'] == 'cw':
         img1 = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
     if settings['rotate1'] == 'ccw':
         img1 = cv2.rotate(img1, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    print(f'比較元ファイル {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
+    print(f'比較元画像 {settings["filename1"]} を読み込みました。画像サイズ: {img1.shape}')
 
     x_mean1, y_mean1 = get_origin(img1)
 
-    print('\n============= STEP 02 =============')
-    print('比較先ファイルの読み込みを行います')
-    # images will be a list of PIL Image representing each page of the PDF document.
-    images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
-    img2 = np.array(images2[0], dtype=np.uint8)
+    print('\n============= STEP 02 - 02 =============')
+    img2 = np.array(images2[page_num], dtype=np.uint8)
 
     if settings['rotate2'] == 'cw':
         img2 = cv2.rotate(img2, cv2.ROTATE_90_CLOCKWISE)
@@ -314,7 +309,7 @@ def main(settings):
 
     x_mean2, y_mean2 = get_origin(img2)
 
-    print('\n============= STEP 03 =============')
+    print('\n============= STEP 02 - 03 =============')
     print('比較元ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -334,7 +329,7 @@ def main(settings):
     img1_margined = cv2.warpAffine(img1_margined, M, (img1_margined.shape[1], img1_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
-    print('\n============= STEP 04 =============')
+    print('\n============= STEP 02 - 04 =============')
     print('比較先ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -352,7 +347,7 @@ def main(settings):
     img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
     print(f'比較先画像の位置調整を行いました')
 
-    print('\n============= STEP 05 =============')
+    print('\n============= STEP 02 - 05 =============')
 
     if settings['display'] == 'comparison':
         print('類似度を計算します')
@@ -380,21 +375,55 @@ def main(settings):
     else:
         print('類似度の計算をスキップします')
 
-    print('\n============= STEP 06 =============')
+    print('\n============= STEP 02 - 06 =============')
     print('結果を表示します')
     if settings['display'] == 'overlap':
-        ip = ImagePresenterOverlap(settings, img1, img2)
+        ip = ImagePresenterOverlap(settings, page_num, img1, img2)
     elif settings['display'] == 'comparison':
         if settings['inverse_comparison'] == 'left':
-            ip = ImagePresenterInverseLeft(settings, img1, img2, similarity1, similarity2)
+            ip = ImagePresenterInverseLeft(settings, page_num, img1, img2, similarity1, similarity2)
         elif settings['inverse_comparison'] == 'right':
-            ip = ImagePresenterInverseRight(settings, img1, img2, similarity1, similarity2)
+            ip = ImagePresenterInverseRight(settings, page_num, img1, img2, similarity1, similarity2)
         else:
             raise NotImplementedError
     else:
         raise NotImplementedError
     
     ip.show()
+
+    compare(settings, images1, images2, page_num + 1)
+
+
+def main(settings):
+    '''
+    PDFを読み込み比較する
+    '''
+    global posi
+
+    print('\n============= STEP 01 =============')
+    print('ファイルの読み込みを行います')
+    print(f'比較元ファイル: {settings["filename1"]}', end=' ')
+    # images will be a list of PIL Image representing each page of the PDF document.
+    images1 = pdf2image.convert_from_path(settings['filename1'], grayscale=True, dpi=600)
+    print('完了')
+
+    settings['total_images1'] = len(images1)
+    print(f'ページ数: {settings["total_images1"]}')
+
+    print(f'比較先ファイル: {settings["filename2"]}', end=' ')
+    images2 = pdf2image.convert_from_path(settings['filename2'], grayscale=True, dpi=600)
+    print('完了')
+
+    settings['total_images2'] = len(images2)
+    print(f'ページ数: {settings["total_images2"]}')
+
+
+    print('\n============= STEP 02 =============')
+    compare(settings, images1, images2)
+
+    print('\n============= STEP 03 =============')
+    #結合
+
 
 if __name__ == '__main__':
     print('============= STEP 00 =============')

@@ -15,6 +15,8 @@ settings = {
     'delta_y': None,
 
     # input file info
+    'total_images1': None,
+    'total_images2': None,
     'rotate1': '',  # 'cw, ccw or empty
     'rotate2': '',
 
