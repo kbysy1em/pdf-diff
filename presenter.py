@@ -198,14 +198,24 @@ class ImagePresenterOverlap(ImagePresenter):
         result = cv2.add(self.color_img1, self.color_img2)
 
         if self.img2.shape[0] > self.img2.shape[1]:  # if img2 is portrait
+            # fig = plt.figure(figsize=(8.27, 11.69))
+            # ax1 = fig.add_subplot(1, 1, 1)
+            # ax1.axis('off')
+            # ax1.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
+            # ax1.imshow(result)
             plt.figure(figsize=(8.27, 11.69))
             plt.axis('off')
-#            plt.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
+            plt.subplots_adjust(left=0, right=1, top=1, bottom=0) 
             plt.imshow(result)
         else:  # if img2 is landscape
+            # fig = plt.figure(figsize=(11.69, 8.27))
+            # ax1 = fig.add_subplot(1, 1, 1)
+            # ax1.axis('off')
+            # ax1.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
+            # ax1.imshow(result)
             plt.figure(figsize=(11.69, 8.27))
             plt.axis('off')
-#            plt.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02) 
             plt.imshow(result)
 
         try:
