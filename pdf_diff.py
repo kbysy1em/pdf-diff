@@ -12,6 +12,7 @@ from functools import wraps
 from matplotlib import pyplot as plt
 from multiprocessing import Process, Queue
 from multiprocessing import shared_memory
+from merger import Merger
 from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight, ImagePresenterOverlap
 from settings import *
 from sklearn.decomposition import PCA
@@ -417,13 +418,17 @@ def main(settings):
     settings['total_images2'] = len(images2)
     print(f'ページ数: {settings["total_images2"]}')
 
+    try:
+        print('\n============= STEP 02 =============')
+        compare(settings, images1, images2)
 
-    print('\n============= STEP 02 =============')
-    compare(settings, images1, images2)
-
-    print('\n============= STEP 03 =============')
-    #結合
-
+        print('\n============= STEP 03 =============')
+        merger = Merger(settings)
+        merger.execute()
+    except PermissionError:
+        print('ファイルの書き込み時に問題が発生しました')
+        print('ファイルが開いたままではないか確認してください')
+        return
 
 if __name__ == '__main__':
     print('============= STEP 00 =============')

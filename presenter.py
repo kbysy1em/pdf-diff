@@ -174,6 +174,8 @@ class ImagePresenterInverseRight(ImagePresenter):
             self.color_img2[x1:x2, y1:y2] = cv2.merge((self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2], self.img2[x1:x2, y1:y2]))
 
 class ImagePresenterOverlap(ImagePresenter):
+    """ImagePresenter class in Overlap mode
+    """
     def show(self):
         print('比較元画像の位置を調整します')
         print(f'x方向移動量: {self.settings["delta_x"]} (下が正方向)')
@@ -198,11 +200,17 @@ class ImagePresenterOverlap(ImagePresenter):
         if self.img2.shape[0] > self.img2.shape[1]:  # if img2 is portrait
             plt.figure(figsize=(8.27, 11.69))
             plt.axis('off')
+#            plt.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
             plt.imshow(result)
         else:  # if img2 is landscape
             plt.figure(figsize=(11.69, 8.27))
             plt.axis('off')
+#            plt.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
             plt.imshow(result)
 
-        plt.savefig('result' + str(self.page_num) + '.pdf', dpi=600, bbox_inches='tight')
+        try:
+            plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
+        except PermissionError:
+            raise
+
         plt.show()

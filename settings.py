@@ -20,6 +20,9 @@ settings = {
     'rotate1': '',  # 'cw, ccw or empty
     'rotate2': '',
 
+    # output file info
+    'output_filename': 'result',  # 拡張子はつけない
+
     # color
     'cv_pink': (203, 192, 255),
     'pink': (255, 192, 203),
