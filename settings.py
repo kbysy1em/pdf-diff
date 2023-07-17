@@ -35,6 +35,7 @@ settings = {
     # others
     'display': 'overlap',  # comparison, overlap, raw
     'inverse_comparison' : 'left',  # 'left, right or empty'
+    'check_origin' : True,
     'check_similarity' : False,
     'debug': False
 }

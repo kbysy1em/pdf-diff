@@ -102,11 +102,10 @@ def get_similarity(queue, settings, img1, img2, similarity, shmname):
     shm.unlink()
 
 def get_origin(img):
-    '''
-    原点を求める
+    """原点を求める
 
-    自動で原点を検出し、画像を表示する。人間がそれを確認して気に入らなければ手動で原点を設定する
-    '''
+    自動で原点を検出し、画像を表示する。人間がそれを確認して適切でなけれあ手動で原点を設定する
+    """
     global posi
 
     ANGLE_THRESHOLD = np.pi / 4
@@ -261,21 +260,24 @@ def get_origin(img):
     intersection = (int(x_mean1), int(y_mean1))
     print(f'原点: {intersection}')
  
-    # 画像上に交点を表示する
-    img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['cv_green'], 5)
-    img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['cv_green'], 5)
+    if settings['check_origin']:
+        # 画像上に交点を表示する
+        img_disp = cv2.line(img_disp, (intersection[0]-30, intersection[1]), (intersection[0]+30, intersection[1]), settings['cv_green'], 5)
+        img_disp = cv2.line(img_disp, (intersection[0], intersection[1]-30), (intersection[0], intersection[1]+30), settings['cv_green'], 5)
 
-    print('原点の位置が適正でない場合には原点の位置をクリックしてください')
+        print('原点の位置が適正でない場合には原点の位置をクリックしてください')
 
-    posi = []
-    fig = plt.figure()
-    plt.imshow(img_disp)
-    fig.canvas.mpl_connect('button_press_event', onclick2)
-    plt.show()
+        posi = []
+        fig = plt.figure()
+        plt.imshow(img_disp)
+        fig.canvas.mpl_connect('button_press_event', onclick2)
+        plt.show()
 
-    if posi:
-        intersection = posi.pop()
-        print(f'原点位置を変更します: {intersection}')
+        if posi:
+            intersection = posi.pop()
+            print(f'原点位置を変更します: {intersection}')
+    else:
+        print('設定値check_originがFalseのため、原点の確認をスキップします')
 
     return intersection
 
