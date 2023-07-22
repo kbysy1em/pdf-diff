@@ -25,6 +25,7 @@ class ImagePresenter:
         self.page_num = page_num
         self.similarity1 = similarity1
         self.similarity2 = similarity2
+        self.criterion = settings['criterion'] * (1 / settings['step_x']) * (1 / settings['step_y'])
 
         self.color_img1 = cv2.merge((img1, img1, img1))
         self.color_img2 = cv2.merge((img2, img2, img2))
@@ -49,10 +50,10 @@ class ImagePresenterInverseLeft(ImagePresenter):
         global clicked_ax
         global clicked_positions
         
-        self.color_img2_sub[(self.img2_sub < 128) & (self.similarity2_sub < self.settings['criterion'])] = self.settings['red']
-        self.color_img2_sub[(self.img2_sub >= 128) & (self.similarity2_sub < self.settings['criterion'])] = self.settings['pink']
-        self.color_img1_sub[(self.img1_sub < 128) & (self.similarity1_sub < self.settings['criterion'])] = self.settings['deep_green']
-        self.color_img1_sub[(self.img1_sub >= 128) & (self.similarity1_sub < self.settings['criterion'])] = (152, 251, 152)
+        self.color_img2_sub[(self.img2_sub < 128) & (self.similarity2_sub < self.criterion)] = self.settings['red']
+        self.color_img2_sub[(self.img2_sub >= 128) & (self.similarity2_sub < self.criterion)] = self.settings['pink']
+        self.color_img1_sub[(self.img1_sub < 128) & (self.similarity1_sub < self.criterion)] = self.settings['deep_green']
+        self.color_img1_sub[(self.img1_sub >= 128) & (self.similarity1_sub < self.criterion)] = (152, 251, 152)
 
         self.color_img1[self.start_x:self.end_x, self.start_y:self.end_y] = self.color_img1_sub
         self.color_img2[self.start_x:self.end_x, self.start_y:self.end_y] = self.color_img2_sub
@@ -118,10 +119,10 @@ class ImagePresenterInverseRight(ImagePresenter):
     def show(self):
         global clicked_positions
         
-        self.color_img2_sub[(self.img2_sub < 128) & (self.similarity2_sub < self.settings['criterion'])] = self.settings['red']
-        self.color_img2_sub[(self.img2_sub >= 128) & (self.similarity2_sub < self.settings['criterion'])] = self.settings['pink']
-        self.color_img2_sub[(self.similarity2_sub >= self.settings['criterion']) & (self.img1_sub < 128) & (self.similarity1_sub < self.settings['criterion'])] = self.settings['deep_green']
-        self.color_img2_sub[(self.similarity2_sub >= self.settings['criterion']) & (self.img1_sub >= 128) & (self.similarity1_sub < self.settings['criterion'])] = (152, 251, 152)
+        self.color_img2_sub[(self.img2_sub < 128) & (self.similarity2_sub < self.criterion)] = self.settings['red']
+        self.color_img2_sub[(self.img2_sub >= 128) & (self.similarity2_sub < self.criterion)] = self.settings['pink']
+        self.color_img2_sub[(self.similarity2_sub >= self.criterion) & (self.img1_sub < 128) & (self.similarity1_sub < self.criterion)] = self.settings['deep_green']
+        self.color_img2_sub[(self.similarity2_sub >= self.criterion) & (self.img1_sub >= 128) & (self.similarity1_sub < self.criterion)] = (152, 251, 152)
 
         self.color_img2[self.start_x:self.end_x, self.start_y:self.end_y] = self.color_img2_sub
         retry = True
