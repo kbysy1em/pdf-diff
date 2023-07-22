@@ -307,7 +307,7 @@ def compare(settings, images1, images2, page_num = 0):
 
     x_mean1, y_mean1 = get_origin(img1)
 
-    print('\n============= STEP 02 - 02 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 02 ({page_num}ページ目) =============')
     img2 = np.array(images2[page_num], dtype=np.uint8)
 
     if settings['rotate2'] == 'cw':
@@ -319,7 +319,7 @@ def compare(settings, images1, images2, page_num = 0):
 
     x_mean2, y_mean2 = get_origin(img2)
 
-    print('\n============= STEP 02 - 03 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 03 ({page_num}ページ目) =============')
     print('比較元ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -339,7 +339,7 @@ def compare(settings, images1, images2, page_num = 0):
     img1_margined = cv2.warpAffine(img1_margined, M, (img1_margined.shape[1], img1_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
-    print('\n============= STEP 02 - 04 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 04 ({page_num}ページ目) =============')
     print('比較先ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -357,7 +357,7 @@ def compare(settings, images1, images2, page_num = 0):
     img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
     print(f'比較先画像の位置調整を行いました')
 
-    print('\n============= STEP 02 - 05 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 05 ({page_num}ページ目) =============')
     if settings['display'] == 'comparison':
         print('類似度を計算します')
 
@@ -387,7 +387,7 @@ def compare(settings, images1, images2, page_num = 0):
     else:
         print('類似度の計算をスキップします')
 
-    print('\n============= STEP 02 - 06 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 06 ({page_num}ページ目) =============')
     print('結果を表示します')
 
     if settings['display'] == 'raw':

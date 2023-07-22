@@ -93,7 +93,10 @@ class ImagePresenterInverseLeft(ImagePresenter):
 
             axs = {ax1:'ax1', ax2:'ax2'}
             
-            plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
+            try:
+                plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
+            except PermissionError:
+                raise       
             fig.canvas.mpl_connect('button_press_event', onclick)
             plt.show()
 
@@ -158,7 +161,10 @@ class ImagePresenterInverseRight(ImagePresenter):
                 ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
                 ax2.imshow(self.color_img2)
 
-            plt.savefig('result.pdf', dpi=600, bbox_inches='tight')
+            try:
+                plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
+            except PermissionError:
+                raise       
             fig.canvas.mpl_connect('button_press_event', onclick)
             plt.show()
 
