@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 from multiprocessing import Process, Queue
 from multiprocessing import shared_memory
 from merger import Merger
-from presenter import ImagePresenterInverseLeft, ImagePresenterInverseRight, ImagePresenterOverlap
+from presenter import ImagePresenterRaw, ImagePresenterInverseLeft, ImagePresenterInverseRight, ImagePresenterOverlap
 from settings import *
 from sklearn.decomposition import PCA
 
@@ -39,12 +39,13 @@ def onclick2(event):
     posi.append([int(event.ydata), int(event.xdata)])
     print(f'Clicked point: {posi[-1]}')
 
-def work(settings, img1, img2, similarity, shmname, start, stop=None):
+def work(settings, img1, img2, similarity, shmname, process_num, start, stop=None):
+    print(f'{shmname}-{process_num} starting')
     if stop is None:
         stop = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x']))
 
     existing_shm = shared_memory.SharedMemory(name=shmname)
-    cimg = np.ndarray(similarity.shape, dtype=np.float64, buffer=existing_shm.buf)
+    cimg = np.ndarray(similarity.shape, dtype=np.float32, buffer=existing_shm.buf)
 
     ite_xs = range(start, stop)
     for ite_x in ite_xs:
@@ -69,6 +70,7 @@ def work(settings, img1, img2, similarity, shmname, start, stop=None):
 
             cimg[x:x + settings['intr_area_x'], y:y + settings['intr_area_y']] += max_val
     existing_shm.close()
+    print(f'{shmname}-{process_num} completed')
 
 @elapsed_time
 def get_similarity(queue, settings, img1, img2, similarity, shmname):
@@ -79,15 +81,15 @@ def get_similarity(queue, settings, img1, img2, similarity, shmname):
     shm = shared_memory.SharedMemory(name=shmname, create=True, size=similarity.nbytes)
 
     # 共有メモリによって使用させるndarray
-    similarity2 = np.ndarray(similarity.shape, dtype=np.float64, buffer=shm.buf)
+    similarity2 = np.ndarray(similarity.shape, dtype=np.float32, buffer=shm.buf)
     similarity2[:, :] = similarity[:, :]
 
     max_ite_x = int(img2.shape[0] / (settings['intr_area_x'] * settings['step_x'])) - 1
 
-    num_process = 3
+    num_process = 2
     processes = []
     for i in range(num_process):
-        p = Process(target=work, args=(settings, img1, img2, similarity, shmname, 
+        p = Process(target=work, args=(settings, img1, img2, similarity, shmname, i,
                                        int(max_ite_x / num_process * i), int(max_ite_x / num_process * (i + 1))))
         p.start()
         processes.append(p)
@@ -100,11 +102,17 @@ def get_similarity(queue, settings, img1, img2, similarity, shmname):
     queue.put(similarity)
     shm.close()
     shm.unlink()
+    if shmname == 'similarity_shm1':
+        print('逆方向比較プロセス完了')
+    elif shmname == 'similarity_shm2':
+        print('正方向比較プロセス完了')
+    else:
+        raise NotImplementedError
 
 def get_origin(img):
     """原点を求める
 
-    自動で原点を検出し、画像を表示する。人間がそれを確認して適切でなけれあ手動で原点を設定する
+    自動で原点を検出し、画像を表示する。人間がそれを確認して適切でなければ手動で原点を設定する
     """
     global posi
 
@@ -248,7 +256,7 @@ def get_origin(img):
             else:
                 x_mean1 = sum(values) / len(values)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
         
     except IndexError:
         x_mean1 = 0
@@ -282,13 +290,13 @@ def get_origin(img):
     return intersection
 
 def compare(settings, images1, images2, page_num = 0):
-    '''
-    各ページごとに比較を行い、結果を保存する
-    '''
+    """各ページごとに比較を行い、結果を保存する
+    """
     if page_num == settings['total_images1']:
         return
-
-    print('\n============= STEP 02 - 01 =============')
+    
+    print(f'ページ: {page_num}')
+    print('============= STEP 02 - 01 =============')
     img1 = np.array(images1[page_num], dtype=np.uint8)
 
     if settings['rotate1'] == 'cw':
@@ -351,25 +359,27 @@ def compare(settings, images1, images2, page_num = 0):
     print(f'比較先画像の位置調整を行いました')
 
     print('\n============= STEP 02 - 05 =============')
-
     if settings['display'] == 'comparison':
         print('類似度を計算します')
 
-        result_queue = Queue()
+        result_queue1 = Queue()
+        result_queue2 = Queue()
 
-        similarity2 = np.zeros_like(img2, dtype=np.float64)
-        similarity1 = np.zeros_like(img1, dtype=np.float64)
+        similarity2 = np.zeros_like(img2, dtype=np.float32)
+        similarity1 = np.zeros_like(img1, dtype=np.float32)
 
-        p1 = Process(target=get_similarity, args=(result_queue, settings, img1_margined, img2, similarity2, 'similarity_shm2'))
+        print('比較元から比較先への類似度の計算を行います(正方向比較プロセス)')
+        p1 = Process(target=get_similarity, args=(result_queue2, settings, img1_margined, img2, similarity2, 'similarity_shm2'))
         p1.start()
-        p2 = Process(target=get_similarity, args=(result_queue, settings, img2_margined, img1, similarity1, 'similarity_shm1'))
+        print('比較先から比較元への類似度の計算を行います(逆方向比較プロセス)')
+        p2 = Process(target=get_similarity, args=(result_queue1, settings, img2_margined, img1, similarity1, 'similarity_shm1'))
         p2.start()
-        similarity2 = result_queue.get()
-        similarity1 = result_queue.get()
+        similarity2 = result_queue2.get()
+        similarity1 = result_queue1.get()
 
         p1.join()
         p2.join()
-        print('p1 and p2 joined')
+        print('完了')
 
         if settings['check_similarity']:
             print('類似度(similarity2)をCSVファイルに出力しています...', end=' ')
@@ -380,7 +390,10 @@ def compare(settings, images1, images2, page_num = 0):
 
     print('\n============= STEP 02 - 06 =============')
     print('結果を表示します')
-    if settings['display'] == 'overlap':
+
+    if settings['display'] == 'raw':
+        ip = ImagePresenterRaw(settings, page_num, img1, img2)
+    elif settings['display'] == 'overlap':
         ip = ImagePresenterOverlap(settings, page_num, img1, img2)
     elif settings['display'] == 'comparison':
         if settings['inverse_comparison'] == 'left':
@@ -425,6 +438,7 @@ def main(settings):
         compare(settings, images1, images2)
 
         print('\n============= STEP 03 =============')
+        print('ファイルを結合します')
         merger = Merger(settings)
         merger.execute()
     except PermissionError:

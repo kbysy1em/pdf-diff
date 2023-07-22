@@ -198,21 +198,11 @@ class ImagePresenterOverlap(ImagePresenter):
         result = cv2.add(self.color_img1, self.color_img2)
 
         if self.img2.shape[0] > self.img2.shape[1]:  # if img2 is portrait
-            # fig = plt.figure(figsize=(8.27, 11.69))
-            # ax1 = fig.add_subplot(1, 1, 1)
-            # ax1.axis('off')
-            # ax1.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
-            # ax1.imshow(result)
             plt.figure(figsize=(8.27, 11.69))
             plt.axis('off')
             plt.subplots_adjust(left=0, right=1, top=1, bottom=0) 
             plt.imshow(result)
         else:  # if img2 is landscape
-            # fig = plt.figure(figsize=(11.69, 8.27))
-            # ax1 = fig.add_subplot(1, 1, 1)
-            # ax1.axis('off')
-            # ax1.set_position(mpl.transforms.Bbox([[0, 0], [1, 1]]))
-            # ax1.imshow(result)
             plt.figure(figsize=(11.69, 8.27))
             plt.axis('off')
             plt.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02) 
@@ -224,3 +214,41 @@ class ImagePresenterOverlap(ImagePresenter):
             raise
 
         plt.show()
+
+class ImagePresenterRaw(ImagePresenter):
+    """ImagePresenter class in Raw mode
+    """
+    def show(self):
+        if self.img2.shape[0] > self.img2.shape[1]:
+            fig = plt.figure(figsize=(11.69, 8.27))
+            
+            ax1 = fig.add_subplot(1, 2, 1)
+            ax1.axis('off')
+            ax1.set_position(mpl.transforms.Bbox([[0, 0], [0.5, 1]]))
+            ax1.imshow(self.img1, cmap='gray')
+            
+            ax2 = plt.subplot(1, 2, 2)
+            ax2.axis('off')
+            ax2.set_position(mpl.transforms.Bbox([[0.5, 0], [1, 1]]))
+            ax2.imshow(self.img2, cmap='gray')
+
+        else:
+            fig = plt.figure(figsize=(8.27, 11.69))
+            
+            ax1 = fig.add_subplot(2, 1, 1)
+            ax1.axis('off')
+            ax1.set_position(mpl.transforms.Bbox([[0, 0.5], [1, 1]]))
+            ax1.imshow(self.img1, cmap='gray')
+            
+            ax2 = plt.subplot(2, 1, 2)
+            ax2.axis('off')
+            ax2.set_position(mpl.transforms.Bbox([[0, 0], [1, 0.5]]))
+            ax2.imshow(self.img2, cmap='gray')
+
+        try:
+            plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
+        except PermissionError:
+            raise       
+        plt.show()
+
+
