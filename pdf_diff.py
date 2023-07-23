@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import pdf2image
+import io
 import pprint
 import sys
 import time
@@ -288,14 +289,13 @@ def get_origin(img):
 
     return intersection
 
-def compare(settings, images1, images2, page_num = 0):
+def compare(settings, images1, images2, pdfs, page_num = 0):
     """各ページごとに比較を行い、結果を保存する
     """
     if page_num == settings['total_images1']:
         return
     
-    print(f'ページ: {page_num}')
-    print(f'============= STEP 02 - 01 ({page_num}ページ目) =============')
+    print(f'============= STEP 02 - 01 ({page_num+1}ページ目) =============')
     img1 = np.array(images1[page_num], dtype=np.uint8)
 
     if settings['rotate1'] == 'cw':
@@ -307,7 +307,7 @@ def compare(settings, images1, images2, page_num = 0):
 
     x_mean1, y_mean1 = get_origin(img1)
 
-    print(f'\n============= STEP 02 - 02 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 02 ({page_num+1}ページ目) =============')
     img2 = np.array(images2[page_num], dtype=np.uint8)
 
     if settings['rotate2'] == 'cw':
@@ -319,7 +319,7 @@ def compare(settings, images1, images2, page_num = 0):
 
     x_mean2, y_mean2 = get_origin(img2)
 
-    print(f'\n============= STEP 02 - 03 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 03 ({page_num+1}ページ目) =============')
     print('比較元ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -339,7 +339,7 @@ def compare(settings, images1, images2, page_num = 0):
     img1_margined = cv2.warpAffine(img1_margined, M, (img1_margined.shape[1], img1_margined.shape[0]), borderValue=255)
     print(f'比較元画像の位置調整を行いました')
 
-    print(f'\n============= STEP 02 - 04 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 04 ({page_num+1}ページ目) =============')
     print('比較先ファイルの位置合わせを行います')
 
     print(f'必要な片側余白量(x方向): {settings["border_x"]}')
@@ -357,7 +357,7 @@ def compare(settings, images1, images2, page_num = 0):
     img2_margined = cv2.warpAffine(img2_margined, M, (img2_margined.shape[1], img2_margined.shape[0]), borderValue=255)
     print(f'比較先画像の位置調整を行いました')
 
-    print(f'\n============= STEP 02 - 05 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 05 ({page_num+1}ページ目) =============')
     if settings['display'] == 'comparison':
         print('類似度を計算します')
 
@@ -387,18 +387,18 @@ def compare(settings, images1, images2, page_num = 0):
     else:
         print('類似度の計算をスキップします')
 
-    print(f'\n============= STEP 02 - 06 ({page_num}ページ目) =============')
+    print(f'\n============= STEP 02 - 06 ({page_num+1}ページ目) =============')
     print('結果を表示します')
 
     if settings['display'] == 'raw':
-        ip = ImagePresenterRaw(settings, page_num, img1, img2)
+        ip = ImagePresenterRaw(settings, page_num, img1, img2, pdfs)
     elif settings['display'] == 'overlap':
-        ip = ImagePresenterOverlap(settings, page_num, img1, img2)
+        ip = ImagePresenterOverlap(settings, page_num, img1, img2, pdfs)
     elif settings['display'] == 'comparison':
         if settings['inverse_comparison'] == 'left':
-            ip = ImagePresenterInverseLeft(settings, page_num, img1, img2, similarity1, similarity2)
+            ip = ImagePresenterInverseLeft(settings, page_num, img1, img2, pdfs, similarity1, similarity2)
         elif settings['inverse_comparison'] == 'right':
-            ip = ImagePresenterInverseRight(settings, page_num, img1, img2, similarity1, similarity2)
+            ip = ImagePresenterInverseRight(settings, page_num, img1, img2, pdfs, similarity1, similarity2)
         else:
             raise NotImplementedError
     else:
@@ -406,7 +406,7 @@ def compare(settings, images1, images2, page_num = 0):
     
     ip.show()
 
-    compare(settings, images1, images2, page_num + 1)
+    compare(settings, images1, images2, pdfs, page_num + 1)
 
 
 def main(settings):
@@ -434,11 +434,12 @@ def main(settings):
 
     try:
         print('\n============= STEP 02 =============')
-        compare(settings, images1, images2)
+        pdfs = []
+        compare(settings, images1, images2, pdfs)
 
         print('\n============= STEP 03 =============')
         print('ファイルを結合します')
-        merger = Merger(settings)
+        merger = Merger(settings, pdfs)
         merger.execute()
     except PermissionError:
         print('ファイルの書き込み時に問題が発生しました')

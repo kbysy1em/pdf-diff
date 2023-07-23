@@ -1,4 +1,5 @@
 import cv2
+import io
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
@@ -18,7 +19,7 @@ def onclick(event):
 
 
 class ImagePresenter:
-    def __init__(self, settings, page_num, img1, img2, similarity1=None, similarity2=None):
+    def __init__(self, settings, page_num, img1, img2, pdfs, similarity1=None, similarity2=None):
         self.settings = settings
         self.img1 = img1
         self.img2 = img2
@@ -26,6 +27,7 @@ class ImagePresenter:
         self.similarity1 = similarity1
         self.similarity2 = similarity2
         self.criterion = settings['criterion'] * (1 / settings['step_x']) * (1 / settings['step_y'])
+        self.pdfs = pdfs
 
         self.color_img1 = cv2.merge((img1, img1, img1))
         self.color_img2 = cv2.merge((img2, img2, img2))
@@ -162,6 +164,7 @@ class ImagePresenterInverseRight(ImagePresenter):
                 ax2.imshow(self.color_img2)
 
             try:
+
                 plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
             except PermissionError:
                 raise       
@@ -253,9 +256,13 @@ class ImagePresenterRaw(ImagePresenter):
             ax2.imshow(self.img2, cmap='gray')
 
         try:
-            plt.savefig(f'{self.settings["output_filename"]}{self.page_num:02}.pdf', dpi=600, bbox_inches='tight')
+            pdf = io.BytesIO()
+            plt.savefig(pdf, format='pdf', dpi=300, bbox_inches='tight')
+            self.pdfs.append(pdf)
         except PermissionError:
             raise       
         plt.show()
 
+        with open("test.pdf", "wb") as testtest:
+            testtest.write(self.pdfs[0].getvalue())
 
